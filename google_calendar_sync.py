@@ -51,29 +51,29 @@ class GoogleCalendarSync:
                 creds = service_account.Credentials.from_service_account_file(
                     sa_path, scopes=SCOPES
                 )
-        else:
-            # Carrega token existente para fluxo OAuth interativo
-            if os.path.exists(TOKEN_FILE):
-                with open(TOKEN_FILE, 'rb') as token:
-                    creds = pickle.load(token)
+            else:
+                # Carrega token existente para fluxo OAuth interativo
+                if os.path.exists(TOKEN_FILE):
+                    with open(TOKEN_FILE, 'rb') as token:
+                        creds = pickle.load(token)
 
-            # Se não há credenciais válidas, faz login (fluxo interativo)
-            if not creds or not creds.valid:
-                if creds and creds.expired and creds.refresh_token:
-                    creds.refresh(Request())
-                else:
-                    if not os.path.exists(CREDENTIALS_FILE):
-                        print(f"❌ Erro: Arquivo '{CREDENTIALS_FILE}' não encontrado!")
-                        print("📝 Siga as instruções em SETUP.md para configurar")
-                        exit(1)
+                # Se não há credenciais válidas, faz login (fluxo interativo)
+                if not creds or not creds.valid:
+                    if creds and creds.expired and creds.refresh_token:
+                        creds.refresh(Request())
+                    else:
+                        if not os.path.exists(CREDENTIALS_FILE):
+                            print(f"❌ Erro: Arquivo '{CREDENTIALS_FILE}' não encontrado!")
+                            print("📝 Siga as instruções em SETUP.md para configurar")
+                            exit(1)
 
-                    flow = InstalledAppFlow.from_client_secrets_file(
-                        CREDENTIALS_FILE, SCOPES)
-                    creds = flow.run_local_server(port=0)
+                        flow = InstalledAppFlow.from_client_secrets_file(
+                            CREDENTIALS_FILE, SCOPES)
+                        creds = flow.run_local_server(port=0)
 
-                # Salva token para próxima vez
-                with open(TOKEN_FILE, 'wb') as token:
-                    pickle.dump(creds, token)
+                    # Salva token para próxima vez
+                    with open(TOKEN_FILE, 'wb') as token:
+                        pickle.dump(creds, token)
         
         # Cria cliente do Google Calendar usando a biblioteca googleapiclient
         from googleapiclient.discovery import build
