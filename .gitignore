@@ -1,2 +1,32 @@
+# Credenciais Google Calendar
+service-account.json
+credentials.json
+token.pickle
+
+# Python Virtual Environments
 venv
 .venv
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db

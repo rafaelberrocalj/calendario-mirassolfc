@@ -1,0 +1,85 @@
+name: 📅 Sincronizar Google Calendar
+
+on:
+  schedule:
+    # Executar diariamente às 00:00 UTC (22:00 BRT anterior)
+    - cron: '0 0 * * *'
+  
+  # Permitir execução manual via GitHub UI
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  sync-calendar:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 📥 Checkout do repositório
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: 🐍 Setup Python 3.11
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      
+      - name: 📦 Instalar dependências
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      
+      - name: 🔍 Executar Scraper
+        run: |
+          python3 scraper.py
+          echo "✅ Scraper executado com sucesso"
+      
+      - name: 🔐 Configurar Service Account (GitHub Secret)
+        env:
+          SERVICE_ACCOUNT_KEY: ${{ secrets.SERVICE_ACCOUNT_KEY }}
+        run: |
+          echo "$SERVICE_ACCOUNT_KEY" > service-account.json
+          echo "✅ Service Account key written"
+
+      - name: 📱 Sincronizar com Google Calendar
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ github.workspace }}/service-account.json
+        run: |
+          python3 google_calendar_sync_smart.py
+          echo "✅ Calendário sincronizado"
+      
+      - name: 🧹 Limpar credenciais
+        if: always()
+        run: |
+          rm -f service-account.json
+          echo "✅ Credenciais removidas (segurança)"
+      
+      - name: 📝 Configurar Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+      
+      - name: 📤 Fazer commit de mudanças
+        run: |
+          git add mirassol_futebol_clube.ics || true
+          
+          if git diff --staged --quiet; then
+            echo "📭 Nenhuma mudança no .ics"
+          else
+            git commit -m "📅 Atualização automática do calendário [skip ci]"
+            echo "✅ Commit realizado"
+          fi
+      
+      - name: 🚀 Push para repositório
+        run: |
+          git push || echo "Nada para fazer push"
+          echo "✅ Push concluído"
+      
+      - name: ✨ Sucesso!
+        run: |
+          echo "🎉 Sincronização completa!"
+          echo "✅ Scraper executado"
+          echo "✅ Calendário sincronizado"
+          echo "✅ Mudanças enviadas"
