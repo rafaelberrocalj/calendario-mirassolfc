@@ -46,8 +46,9 @@ jobs:
       - name: 📱 Sincronizar com Google Calendar
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ github.workspace }}/service-account.json
+          SERVICE_ACCOUNT_KEY: ${{ secrets.SERVICE_ACCOUNT_KEY }}
         run: |
-          python3 google_calendar_sync_smart.py
+          python3 google_calendar_sync.py
           echo "✅ Calendário sincronizado"
       
       - name: 🧹 Limpar credenciais

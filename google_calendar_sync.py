@@ -6,6 +6,7 @@ Cria calendário 'MirassolFC' se não existir e sincroniza todos os eventos
 
 import os
 import pickle
+import json
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
@@ -32,12 +33,24 @@ class GoogleCalendarSync:
     def authenticate(self):
         """Autentica com Google Calendar API"""
         creds = None
-        # 1) Support service account via GOOGLE_APPLICATION_CREDENTIALS
-        sa_path = os.environ.get('GOOGLE_APPLICATION_CREDENTIALS') or 'service-account.json'
-        if os.path.exists(sa_path):
-            creds = service_account.Credentials.from_service_account_file(
-                sa_path, scopes=SCOPES
-            )
+        # 1) Prefer SERVICE_ACCOUNT_KEY env var (raw JSON) for GitHub Actions
+        sa_key = os.environ.get('SERVICE_ACCOUNT_KEY')
+        if sa_key:
+            try:
+                info = json.loads(sa_key)
+                creds = service_account.Credentials.from_service_account_info(
+                    info, scopes=SCOPES
+                )
+            except Exception as e:
+                print(f"❌ Chave da Service Account em SERVICE_ACCOUNT_KEY inválida: {e}")
+                exit(1)
+        else:
+            # 2) Fallback: check GOOGLE_APPLICATION_CREDENTIALS or service-account.json file
+            sa_path = os.environ.get('GOOGLE_APPLICATION_CREDENTIALS') or 'service-account.json'
+            if os.path.exists(sa_path):
+                creds = service_account.Credentials.from_service_account_file(
+                    sa_path, scopes=SCOPES
+                )
         else:
             # Carrega token existente para fluxo OAuth interativo
             if os.path.exists(TOKEN_FILE):
