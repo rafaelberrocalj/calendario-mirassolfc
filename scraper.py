@@ -137,6 +137,17 @@ class MirassolScraper:
                     score = cols[2].get_text(strip=True)
                     team2 = cols[3].get_text(strip=True)
                     championship = cols[4].get_text(strip=True) if len(cols) > 4 else ""
+                    # Heurística: às vezes a coluna contém o status (ex: 'Finalizado')
+                    # e o campeonato real está na coluna seguinte. Detectar palavras
+                    # de status e tentar obter o campeonato em cols[5].
+                    status_words = ('finalizado', 'final', 'encerrado', 'terminado', 'concluído', 'concluido', 'ft')
+                    if championship and championship.strip().lower() in status_words and len(cols) > 5:
+                        alt = cols[5].get_text(strip=True)
+                        if alt and alt.strip().lower() not in status_words:
+                            championship = alt
+                    # Se ainda for só um status, limpar para não aparecer como campeonato
+                    if championship and championship.strip().lower() in status_words:
+                        championship = ""
                     
                     # Skip se não tem informação válida
                     if not date_str or not team1 or not score:
@@ -258,7 +269,11 @@ class MirassolScraper:
             # Descrição do evento
             if game['status'] == 'finished':
                 description = f"Resultado: {game['team1']} {game['score']} {game['team2']}"
-                summary = f"{game['team1']} x {game['team2']} - {game['championship']}"
+                # Incluir campeonato se disponível; caso contrário mostrar 'Finalizado'
+                if game.get('championship'):
+                    summary = f"{game['team1']} {game['score']} {game['team2']} - {game['championship']}"
+                else:
+                    summary = f"{game['team1']} {game['score']} {game['team2']} - Finalizado"
             else:
                 description = f"{game['championship']} - Jogo agendado"
                 summary = f"{game['team1']} x {game['team2']} - {game['championship']}"
