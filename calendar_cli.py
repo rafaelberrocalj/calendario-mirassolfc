@@ -178,6 +178,13 @@ class CalendarCLI:
             print("❌ Calendário não encontrado")
             return
         
+        self.cal_manager.make_calendar_public(cal_id)
+        links = self.cal_manager.get_public_calendar_links(cal_id)
+        print(f"\n🔗 Links públicos para o calendário:"
+              f"\n  HTML: {links.get('html', '-')}"
+              f"\n  iCal: {links.get('ical', '-')}"
+              f"\n  XML: {links.get('xml', '-')}")  
+
         if self.cal_manager.share_calendar(cal_id, email, role):
             # Gera link
             calendar_link = f"https://calendar.google.com/calendar/u/0?cid={urllib.parse.quote(cal_id)}"

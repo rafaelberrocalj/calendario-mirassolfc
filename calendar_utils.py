@@ -258,6 +258,38 @@ class CalendarManager:
         except HttpError as e:
             print(f"❌ Erro ao compartilhar: {e}")
             return False
+        
+    def make_calendar_public(self, calendar_id: str) -> bool:
+        """
+        Torna o calendário público (qualquer pessoa pode visualizar)
+        Retorna True se bem-sucedido, False caso contrário
+        """
+        try:
+            rule = {
+                'scope': {
+                    'type': 'default'
+                },
+                'role': 'reader'
+            }
+            
+            self.service.acl().insert(calendarId=calendar_id, body=rule).execute()
+            print(f"✅ Calendário tornado público: {calendar_id}")
+            return True
+        except HttpError as e:
+            print(f"❌ Erro ao tornar calendário público: {e}")
+            return False
+    
+    def get_public_calendar_links(self, calendar_id: str) -> dict:
+        """
+        Gera os links públicos do calendário para compartilhamento
+        Retorna dict com diferentes formatos de links
+        """
+        links = {
+            'html': f'https://calendar.google.com/calendar/embed?src={calendar_id}',
+            'ical': f'https://calendar.google.com/calendar/ical/{calendar_id}/public/basic.ics',
+            'xml': f'https://calendar.google.com/calendar/feeds/{calendar_id}/public/basic',
+        }
+        return links
 
 
 class EventManager:
