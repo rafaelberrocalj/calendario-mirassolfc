@@ -195,6 +195,8 @@ class CalendarManager:
             if name.lower() == 'mirassolfc':
                 with open(CALENDAR_ID_FILE, 'w') as f:
                     f.write(cal_id)
+                # Aplica cor Banana (amarelo) automaticamente
+                self.set_calendar_color(cal_id, '4')
             
             print(f"✅ Calendário '{name}' criado: {cal_id}")
             return cal_id
@@ -224,6 +226,18 @@ class CalendarManager:
             print(f"❌ Erro ao obter calendário: {e}")
             return None
     
+    def set_calendar_color(self, calendar_id: str, color_id: str = '4') -> bool:
+        """
+        Define a cor do calendário
+        color_id: 4 = Banana (Amarelo)
+        """
+        try:
+            body = {"colorId": color_id}
+            self.service.calendarList().update(calendarId=calendar_id, body=body).execute()
+            return True
+        except HttpError as e:
+            return False
+    
     def share_calendar(self, calendar_id: str, email: str, role: str = 'reader') -> bool:
         """
         Compartilha calendário com um email
@@ -233,7 +247,7 @@ class CalendarManager:
             rule = {
                 'scope': {
                     'type': 'user',
-                    'emailAddress': email
+                    'value': email
                 },
                 'role': role
             }

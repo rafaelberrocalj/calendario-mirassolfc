@@ -167,6 +167,10 @@ class CalendarCLI:
         self._initialize()
         
         cal_id = args.id
+        if not cal_id:
+            # Se não informar ID, usa MirassolFC
+            cal_id = self.cal_manager.get_or_create_mirassol_calendar()
+        
         email = args.email
         role = args.role or 'reader'
         
@@ -264,8 +268,8 @@ Exemplos de uso:
     
     # ============ SUBCOMMAND: SHARE ============
     share_parser = subparsers.add_parser('share', help='Compartilhar calendário')
-    share_parser.add_argument('id', help='ID do calendário')
     share_parser.add_argument('email', help='Email para compartilhar')
+    share_parser.add_argument('id', nargs='?', help='ID do calendário (opcional, usa MirassolFC se não fornecido)')
     share_parser.add_argument('-r', '--role', choices=['reader', 'writer', 'owner'], help='Tipo de permissão (padrão: reader)')
     share_parser.set_defaults(func=lambda args: cli.cmd_share(args))
     

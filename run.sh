@@ -7,6 +7,13 @@ GREEN='\033[0;32m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
+# Detectar Python correto (usar venv se disponível, senão usar python3)
+if [ -f ".venv/bin/python" ]; then
+    PYTHON="./.venv/bin/python"
+else
+    PYTHON="python"
+fi
+
 # Se não houver argumentos, mostra ajuda
 if [ $# -eq 0 ]; then
     echo -e "${BLUE}📅 Mirassol FC Calendar CLI${NC}"
@@ -27,9 +34,9 @@ if [ $# -eq 0 ]; then
     echo "    Atualizar calendário com eventos do .ics"
     echo "    Opções: -c para limpar eventos antigos"
     echo ""
-    echo -e "${GREEN}  ./run.sh share <id> <email> [-r role]${NC}"
+    echo -e "${GREEN}  ./run.sh share <email> [id]${NC}"
     echo "    Compartilhar calendário com um email"
-    echo "    role: reader (padrão), writer, owner"
+    echo "    Se não informar ID, usa calendário MirassolFC"
     echo ""
     echo -e "${GREEN}  ./run.sh info <id> [-e]${NC}"
     echo "    Ver informações de um calendário"
@@ -44,7 +51,7 @@ fi
 # Comando especial: scrape (executa scraper.py)
 if [ "$1" = "scrape" ]; then
     echo "🕷️  Executando web scraper..."
-    python scraper.py
+    $PYTHON scraper.py
     
     if ! git diff --quiet mirassolfc.ics; then
         git add mirassolfc.ics
@@ -57,4 +64,4 @@ if [ "$1" = "scrape" ]; then
 fi
 
 # Passa todos os argumentos para calendar_cli.py
-python calendar_cli.py "$@"
+$PYTHON calendar_cli.py "$@"
