@@ -3,6 +3,9 @@ service-account.json
 credentials.json
 token.pickle
 
+# Google Calender Files
+*.ics
+
 # Python Virtual Environments
 venv
 .venv
