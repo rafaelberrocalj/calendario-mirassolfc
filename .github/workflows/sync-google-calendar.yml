@@ -16,10 +16,10 @@ jobs:
         with:
           fetch-depth: 0
       
-      - name: 🐍 Setup Python 3.11
+      - name: 🐍 Setup Python 3.12
         uses: actions/setup-python@v4
         with:
-          python-version: '3.11'
+          python-version: '3.12'
       
       - name: 📦 Instalar dependências
         run: |
@@ -28,7 +28,7 @@ jobs:
       
       - name: 🔍 Executar Scraper
         run: |
-          python3 scraper.py
+          python scraper.py
           echo "✅ Scraper executado com sucesso"
       
       - name: 🔐 Configurar Service Account (GitHub Secret)
@@ -43,7 +43,7 @@ jobs:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ github.workspace }}/service-account.json
           SERVICE_ACCOUNT_KEY: ${{ secrets.SERVICE_ACCOUNT_KEY }}
         run: |
-          python3 calendar_cli.py update -c -y
+          python calendar_cli.py update -c -y
           echo "✅ Calendário sincronizado via calendar_cli.py"
       
       - name: 🧹 Limpar credenciais
