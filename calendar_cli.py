@@ -121,17 +121,15 @@ class CalendarCLI:
         """Atualiza calendário com eventos do arquivo .ics"""
         self._initialize()
         
-        # Obtém ID do calendário
+        # Obtém ou cria o calendário MirassolFC
         cal_id = args.id
-        if not cal_id:
-            # Tenta usar MirassolFC se existir
-            cal_id = self.cal_manager.find_calendar('MirassolFC')
-            if not cal_id and os.path.exists(CALENDAR_ID_FILE):
-                with open(CALENDAR_ID_FILE, 'r') as f:
-                    cal_id = f.read().strip()
         
         if not cal_id:
-            print("❌ Calendário não encontrado. Use --id <calendar_id>")
+            # Usa o método que garante MirassolFC (cria se não existir)
+            cal_id = self.cal_manager.get_or_create_mirassol_calendar()
+        
+        if not cal_id:
+            print("❌ Erro ao obter/criar calendário MirassolFC")
             return
         
         print(f"\n📅 Calendário: {cal_id}\n")
@@ -187,12 +185,12 @@ class CalendarCLI:
         self._initialize()
         
         cal_id = args.id
-        if not cal_id and os.path.exists(CALENDAR_ID_FILE):
-            with open(CALENDAR_ID_FILE, 'r') as f:
-                cal_id = f.read().strip()
+        if not cal_id:
+            # Se não informar ID, usa MirassolFC
+            cal_id = self.cal_manager.get_or_create_mirassol_calendar()
         
         if not cal_id:
-            print("❌ ID do calendário não fornecido. Use --id <calendar_id>")
+            print("❌ Erro ao obter/criar calendário MirassolFC")
             return
         
         cal_info = self.cal_manager.get_calendar_info(cal_id)

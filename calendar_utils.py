@@ -24,8 +24,8 @@ SCOPES = ['https://www.googleapis.com/auth/calendar']
 TOKEN_FILE = 'token.pickle'
 CREDENTIALS_FILE = 'credentials.json'
 SERVICE_ACCOUNT_FILE = 'service-account.json'
-ICS_FILE = 'mirassol_futebol_clube.ics'
-CALENDAR_ID_FILE = 'mirassol_calendar_id.txt'
+ICS_FILE = 'mirassolfc.ics'
+CALENDAR_ID_FILE = 'mirassolfc_calendar_id.txt'
 
 
 class CalendarAuth:
@@ -129,6 +129,49 @@ class CalendarManager:
             if cal.get('summary', '').lower() == name.lower():
                 return cal['id']
         return None
+    
+    def get_or_create_mirassol_calendar(self) -> Optional[str]:
+        """
+        Obtém ou cria o calendário "MirassolFC".
+        Ordem de busca:
+        1. Tenta usar ID salvo em mirassolfc_calendar_id.txt
+        2. Procura por calendário com nome "MirassolFC"
+        3. Se não encontrar, cria um novo
+        Retorna o ID do calendário ou None em caso de erro
+        """
+        # Tenta usar ID salvo
+        if os.path.exists(CALENDAR_ID_FILE):
+            try:
+                with open(CALENDAR_ID_FILE, 'r') as f:
+                    saved_id = f.read().strip()
+                
+                if saved_id:
+                    # Valida se o calendário ainda existe
+                    cal_info = self.get_calendar_info(saved_id)
+                    if cal_info:
+                        print(f"✅ Calendário MirassolFC encontrado (ID salvo): {saved_id}")
+                        return saved_id
+            except Exception as e:
+                print(f"⚠️  Erro ao ler ID salvo: {e}")
+        
+        # Procura por nome
+        found_id = self.find_calendar('MirassolFC')
+        if found_id:
+            # Salva o ID para próxima vez
+            with open(CALENDAR_ID_FILE, 'w') as f:
+                f.write(found_id)
+            print(f"✅ Calendário MirassolFC encontrado (busca por nome): {found_id}")
+            return found_id
+        
+        # Cria novo calendário
+        print("📅 Calendário MirassolFC não encontrado. Criando novo...")
+        new_id = self.create_calendar(
+            name='MirassolFC',
+            description='Calendário de jogos do Mirassol FC',
+            timezone='America/Sao_Paulo'
+        )
+        
+        return new_id
     
     def create_calendar(self, name: str, description: str = "", timezone: str = "America/Sao_Paulo") -> Optional[str]:
         """

@@ -59,7 +59,7 @@ jobs:
       
       - name: 📤 Fazer commit de mudanças
         run: |
-          git add mirassol_futebol_clube.ics || true
+          git add mirassolfc.ics || true
           
           if git diff --staged --quiet; then
             echo "📭 Nenhuma mudança no .ics"

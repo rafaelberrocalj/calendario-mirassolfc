@@ -46,8 +46,8 @@ if [ "$1" = "scrape" ]; then
     echo "🕷️  Executando web scraper..."
     python scraper.py
     
-    if ! git diff --quiet mirassol_futebol_clube.ics; then
-        git add mirassol_futebol_clube.ics
+    if ! git diff --quiet mirassolfc.ics; then
+        git add mirassolfc.ics
         git commit -m "Update Mirassol FC games from scraper"
         echo "✅ Calendário .ics atualizado e commitado"
     else

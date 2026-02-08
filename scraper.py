@@ -216,7 +216,7 @@ class MirassolScraper:
                     print(f"  Erro ao parse de linha: {e}")
                     continue
     
-    def generate_ics(self, output_file='mirassol_futebol_clube.ics'):
+    def generate_ics(self, output_file='mirassolfc.ics'):
         """Gera arquivo iCalendar (.ics) com todos os jogos"""
         print(f"\nGerando arquivo iCalendar: {output_file}")
         
