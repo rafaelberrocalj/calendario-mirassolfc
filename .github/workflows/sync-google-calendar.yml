@@ -43,8 +43,8 @@ jobs:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ github.workspace }}/service-account.json
           SERVICE_ACCOUNT_KEY: ${{ secrets.SERVICE_ACCOUNT_KEY }}
         run: |
-          python3 google_calendar_sync.py
-          echo "✅ Calendário sincronizado"
+          python3 calendar_cli.py update -c -y
+          echo "✅ Calendário sincronizado via calendar_cli.py"
       
       - name: 🧹 Limpar credenciais
         if: always()
