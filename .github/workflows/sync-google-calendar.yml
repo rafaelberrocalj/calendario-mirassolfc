@@ -23,23 +23,23 @@ jobs:
         uses: actions/setup-python@v4
         with:
           python-version: '3.12'
-      
+
       - name: 📦 Instalar dependências
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-      
-      - name: 🔍 Executar Scraper
-        run: |
-          python scraper.py
-          echo "✅ Scraper executado com sucesso"
-      
+
       - name: 🔐 Configurar Service Account (GitHub Secret)
         env:
           SERVICE_ACCOUNT_KEY: ${{ secrets.SERVICE_ACCOUNT_KEY }}
         run: |
           echo "$SERVICE_ACCOUNT_KEY" > service-account.json
-          echo "✅ Service Account key written"
+          echo "✅ Service Account key escrito"
+
+      - name: 🔍 Executar Scraper
+        run: |
+          python scraper.py
+          echo "✅ Scraper executado com sucesso"
 
       - name: 📱 Sincronizar com Google Calendar
         env:
@@ -48,21 +48,19 @@ jobs:
         run: |
           python calendar_cli.py update -c -y
           echo "✅ Calendário sincronizado via calendar_cli.py"
-      
-      - name: 🧹 Limpar credenciais
-        if: always()
-        run: |
-          rm -f service-account.json
-          echo "✅ Credenciais removidas (segurança)"
 
       - name: 📊 Coletar estatísticas de uso
         env:
           SERVICE_ACCOUNT_KEY: ${{ secrets.SERVICE_ACCOUNT_KEY }}
         run: |
-          echo "$SERVICE_ACCOUNT_KEY" > service-account.json
           python stats_collector.py
-          rm -f service-account.json
           echo "✅ Estatísticas coletadas e README atualizado"
+
+      - name: 🧹 Limpar credenciais
+        if: always()
+        run: |
+          rm -f service-account.json
+          echo "✅ Credenciais removidas (segurança)"
 
       - name: 📝 Configurar Git
         run: |
