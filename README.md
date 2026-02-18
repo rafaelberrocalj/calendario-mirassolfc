@@ -62,11 +62,11 @@ Os dados são **atualizados diariamente** de forma automática via GitHub Action
 
 ```mermaid
 graph LR
-    A["🌍 ESPN Brasil"] -->|Scraping| B["🕷️ Web Scraper"]
-    B -->|Extrai dados| C["📝 Gera mirassolfc.ics"]
-    C -->|Compara mudanças| D["🔄 Preserva timestamps")]
-    D -->|Atualiza eventos| E["📅 Google Calendar"]
-    F["📆 Schedule Diário 23h30"] -->|Dispara| B
+    A["ESPN Brasil"] -->|Scraping| B["Web Scraper"]
+    B -->|Extrai dados| C["Gera mirassolfc.ics"]
+    C -->|Compara mudancas| D["Preserva timestamps"]
+    D -->|Atualiza eventos| E["Google Calendar"]
+    F["Schedule Diario 23h30"] -->|Dispara| B
 ```
 
 **Cronograma:**
