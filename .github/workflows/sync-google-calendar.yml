@@ -54,7 +54,16 @@ jobs:
         run: |
           rm -f service-account.json
           echo "✅ Credenciais removidas (segurança)"
-      
+
+      - name: 📊 Coletar estatísticas de uso
+        env:
+          SERVICE_ACCOUNT_KEY: ${{ secrets.SERVICE_ACCOUNT_KEY }}
+        run: |
+          echo "$SERVICE_ACCOUNT_KEY" > service-account.json
+          python stats_collector.py
+          rm -f service-account.json
+          echo "✅ Estatísticas coletadas e README atualizado"
+
       - name: 📝 Configurar Git
         run: |
           git config user.name "github-actions[bot]"
@@ -62,10 +71,10 @@ jobs:
       
       - name: 📤 Fazer commit de mudanças
         run: |
-          git add mirassolfc.ics || true
-          
+          git add mirassolfc.ics README.md || true
+
           if git diff --staged --quiet; then
-            echo "📭 Nenhuma mudança no .ics"
+            echo "📭 Nenhuma mudança no .ics ou README"
           else
             git commit -m "📅 Atualização automática do calendário [skip ci]"
             echo "✅ Commit realizado"

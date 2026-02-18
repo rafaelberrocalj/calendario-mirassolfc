@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Interface de linha de comando para gerenciar calendários do Mirassol FC.
 
-Fornece comandos para criar, listar, deletar, atualizar e compartilhar
-calendários do Google Calendar com sincronização de eventos via iCalendar.
+Fornece comandos para criar, listar, deletar, atualizar, compartilhar e
+monitora calendários do Google Calendar com sincronização de eventos via iCalendar.
 
 Comandos disponíveis:
     list: Lista todos os calendários
@@ -11,12 +11,14 @@ Comandos disponíveis:
     update: Sincroniza eventos de arquivo .ics
     share: Compartilha calendário com um email
     info: Mostra informações de um calendário
+    stats: Mostra estatísticas de uso (quantas pessoas usam)
 
 Exemplos:
     python calendar_cli.py list
     python calendar_cli.py create MirassolFC
     python calendar_cli.py update --clear
     python calendar_cli.py share seu@email.com
+    python calendar_cli.py stats
 
 Autores:
     Desenvolvido para Mirassol FC
@@ -299,6 +301,45 @@ class CalendarCLI:
 
         print()
 
+    # ============ COMANDO: STATS ============
+    def cmd_stats(self, args: argparse.Namespace) -> None:
+        """Mostra estatísticas de uso do calendário.
+
+        Exibe informações sobre quantas pessoas estão usando o calendário,
+        incluindo usuários diretos, grupos e acesso público.
+
+        Args:
+            args: Argumentos contendo ID do calendário (opcional)
+        """
+        self._initialize()
+
+        cal_id: str = args.id
+        if not cal_id:
+            # Se não informar ID, usa MirassolFC
+            cal_id = self.cal_manager.get_or_create_mirassol_calendar()
+
+        if not cal_id:
+            print("❌ Erro ao obter/criar calendário MirassolFC")
+            return
+
+        cal_info = self.cal_manager.get_calendar_info(cal_id)
+        if not cal_info:
+            print("❌ Calendário não encontrado")
+            return
+
+        users_info = self.cal_manager.get_calendar_users(cal_id)
+
+        print(f"\n{'='*60}")
+        print(f"📊 Estatísticas de Uso - {cal_info.get('summary', 'Sem nome')}")
+        print(f"{'='*60}")
+        print(f"\n👥 Usuários diretos: {users_info['total_users']}")
+        print(f"👨‍💼 Grupos: {users_info['total_groups']}")
+        print(f"🏢 Domínios: {users_info['total_domains']}")
+        print(f"🌐 Acesso público: {'Sim' if users_info['public_access'] else 'Não'}")
+        print(f"\n📈 Total de entradas de acesso: {users_info['total_entries']}")
+        print(f"{'='*60}\n")
+
+
 
 def main() -> None:
     """Função principal que configura argparse e executa comandos.
@@ -321,6 +362,7 @@ Exemplos de uso:
   python calendar_cli.py update --clear                # Atualizar com .ics
   python calendar_cli.py share <id> seu@email.com    # Compartilhar
   python calendar_cli.py info <calendar_id>           # Ver informações
+  python calendar_cli.py stats                         # Ver estatísticas
         """,
     )
 
@@ -401,6 +443,11 @@ Exemplos de uso:
         "-e", "--show-events", action="store_true", help="Mostrar lista de eventos"
     )
     info_parser.set_defaults(func=lambda args: cli.cmd_info(args))
+
+    # ============ SUBCOMMAND: STATS ============
+    stats_parser = subparsers.add_parser("stats", help="Estatísticas de uso do calendário")
+    stats_parser.add_argument("id", nargs="?", help="ID do calendário (opcional)")
+    stats_parser.set_defaults(func=lambda args: cli.cmd_stats(args))
 
     # Parse argumentos
     args = parser.parse_args()

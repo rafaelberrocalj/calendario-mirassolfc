@@ -383,6 +383,56 @@ class CalendarManager:
         }
         return links
 
+    def get_calendar_users(self, calendar_id: str) -> Dict[str, Any]:
+        """Obtém informações sobre usuários com acesso ao calendário.
+
+        Conta quantos usuários, grupos e domínios têm acesso ao calendário,
+        além de quantas pessoas podem acessar publicamente.
+
+        Args:
+            calendar_id: ID do calendário
+
+        Returns:
+            Dicionário com contagem de usuários por tipo de acesso
+        """
+        try:
+            acl_list = self.service.acl().list(calendarId=calendar_id).execute()
+            items = acl_list.get("items", [])
+
+            users_count = 0
+            group_count = 0
+            domain_count = 0
+            public_access = False
+
+            for item in items:
+                scope_type = item.get("scope", {}).get("type", "")
+
+                if scope_type == "user":
+                    users_count += 1
+                elif scope_type == "group":
+                    group_count += 1
+                elif scope_type == "domain":
+                    domain_count += 1
+                elif scope_type == "default":
+                    public_access = True
+
+            return {
+                "total_users": users_count,
+                "total_groups": group_count,
+                "total_domains": domain_count,
+                "public_access": public_access,
+                "total_entries": len(items),
+            }
+        except HttpError as e:
+            print(f"❌ Erro ao obter usuários do calendário: {e}")
+            return {
+                "total_users": 0,
+                "total_groups": 0,
+                "total_domains": 0,
+                "public_access": False,
+                "total_entries": 0,
+            }
+
 
 class EventManager:
     """Gerencia operações com eventos no Google Calendar.

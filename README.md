@@ -78,6 +78,18 @@ graph LR
 
 ---
 
+## 📊 Estatísticas de Uso
+
+Última atualização: **Aguardando primeira coleta...** (Brasília)
+
+- 👥 **Usuários diretos:** Aguardando dados...
+- 👨‍💼 **Grupos:** Aguardando dados...
+- 🏢 **Domínios:** Aguardando dados...
+- 🌐 **Acesso público:** Aguardando dados...
+- 📈 **Total de entradas de acesso:** Aguardando dados...
+
+---
+
 ## 🛠️ Como Usar Localmente
 
 Se você quer rodar o projeto manualmente:
