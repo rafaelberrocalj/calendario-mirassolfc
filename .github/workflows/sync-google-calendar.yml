@@ -1,6 +1,9 @@
 name: 📅 Sincronizar Google Calendar
 
 on:
+  schedule:
+    # Roda diariamente às 23:30 de Brasília (02:30 UTC)
+    - cron: '30 2 * * *'
   workflow_dispatch:
 
 permissions:
