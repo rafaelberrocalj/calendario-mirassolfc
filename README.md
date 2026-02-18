@@ -1,145 +1,238 @@
-# 📅 Calendário Mirassol Futebol Clube 2026 – Jogos Atualizados no Google Calendar
+# 📅 Calendário Mirassol Futebol Clube 2026 – Jogos Sincronizados Automaticamente
 
-Quer acompanhar o **calendário do Mirassol Futebol Clube 2026** direto no seu celular?
+Acompanhe o **calendário do Mirassol Futebol Clube 2026** com todas as datas, horários e resultados atualizados automaticamente.
 
-Este projeto disponibiliza um **arquivo ICS atualizado com todos os jogos do Mirassol Futebol Clube**, pronto para adicionar ao **Google Calendar, Apple Calendar, Outlook e outros aplicativos de agenda**.
+Este projeto disponibiliza um **arquivo ICS sincronizado diariamente** com os dados dos jogos do Mirassol FC, pronto para integrar ao **Google Calendar, Apple Calendar, Outlook e outros aplicativos de agenda**.
 
-⚽ Ideal para quem pesquisa por:
+⚽ **Ideal para quem busca:**
 
-- jogos do Mirassol hoje
-- próximos jogos do Mirassol
-- tabela do Mirassol atualizada
-- agenda Mirassol Google Calendar
-- calendário Mirassol Futebol Clube 2026
-
----
-
-# 🔥 O Que É Este Projeto?
-
-O **Calendário do Mirassol Futebol Clube** é uma ferramenta open-source que:
-
-- Gera automaticamente um calendário no formato `.ics`
-- Mantém os jogos do Mirassol Futebol Clube sempre atualizados
-- Permite adicionar a agenda do Mirassol ao Google Calendar
-- Facilita acompanhar todos os campeonatos disputados pelo clube
-
-Você nunca mais vai precisar pesquisar manualmente pelos jogos do Mirassol.
+- Jogos do Mirassol hoje
+- Próximos jogos do Mirassol
+- Tabela e calendário atualizado
+- Integração com Google Calendar
+- Agenda do Mirassol comod: 2026
 
 ---
 
-# 📌 Adicionar Calendário do Mirassol Futebol Clube ao Google Calendar
+## 🎯 O Que É Este Projeto?
 
-Clique abaixo para adicionar agora:
+O **Calendário Mirassol Futebol Clube** é uma ferramenta **automatizada e open-source** que:
 
-👉 **Adicionar calendário do Mirassol Futebol Clube**  
-https://calendar.google.com/calendar/u/0/embed?src=30bc3a6642986d5fd6c8b3126783ebee29c20171d7089f11fe6904697b1df244@group.calendar.google.com
+✅ Consulta automaticamente o ESPN Brasil todo dia às 23h30 (Brasília)
+✅ Gera um calendário `.ics` com todos os jogos do Mirassol
+✅ Sincroniza resultados e próximas partidas em tempo real
+✅ Atualiza apenas eventos que sofreram mudanças (preserva timestamps)
+✅ Integra com Google Calendar e outros aplicativos
+✅ Funciona com múltiplos campeonatos do clube
 
-Depois de adicionar, os jogos aparecerão automaticamente na sua agenda.
+Você nunca mais precisa pesquisar manualmente pelos jogos do Mirassol.
 
-Assim você recebe:
+---
 
-- Datas oficiais
+## 📌 Adicionar Calendário ao Google Calendar
+
+Clique no botão abaixo para adicionar o calendário do Mirassol Futebol Clube ao seu Google Calendar:
+
+👉 **[Adicionar Calendário do Mirassol FC](https://calendar.google.com/calendar/u/0/embed?src=30bc3a6642986d5fd6c8b3126783ebee29c20171d7089f11fe6904697b1df244@group.calendar.google.com)**
+
+Após adicionar, os eventos aparecerão automaticamente em sua agenda com:
+
+- Datas oficiais dos jogos
 - Horários atualizados
-- Confrontos
-- Competições disputadas
+- Confrontos (Mirassol vs Adversário)
+- Competição/Campeonato
+- Resultados (quando finalizados)
 
 ---
 
-# 📅 Jogos do Mirassol Hoje e Próximas Partidas
+## 📊 Conteúdo do Calendário
 
-Este calendário inclui:
+O calendário inclui jogos de:
 
-- Campeonato Brasileiro
-- Campeonato Paulista
-- Copa do Brasil
-- Outras competições oficiais
+- **Campeonato Brasileiro** (Série A)
+- **Campeonato Paulista**
+- **Copa do Brasil**
+- **Outras competições oficiais**
 
-Sempre que houver atualização na tabela do Mirassol Futebol Clube, o calendário poderá ser regenerado e sincronizado.
+Os dados são **atualizados diariamente** de forma automática via GitHub Actions.
 
 ---
 
-# 🛠️ Como Gerar o Calendário Localmente
+## ⚙️ Como Funciona a Automação
+
+```mermaid
+graph LR
+    A["🌍 ESPN Brasil"] -->|Scraping| B["🕷️ Web Scraper"]
+    B -->|Extrai dados| C["📝 Gera mirassolfc.ics"]
+    C -->|Compara mudanças| D["🔄 Preserva timestamps")]
+    D -->|Atualiza eventos| E["📅 Google Calendar"]
+    F["📆 Schedule Diário 23h30"] -->|Dispara| B
+```
+
+**Cronograma:**
+
+- ⏰ Executa automaticamente às **23h30 (horário de Brasília)**
+- 🔄 Todos os dias
+- 📤 Atualiza Google Calendar com novos dados
+- 💾 Faz commit apenas de mudanças reais
+
+---
+
+## 🛠️ Como Usar Localmente
 
 Se você quer rodar o projeto manualmente:
 
-## 1️⃣ Clone o repositório
+### 1️⃣ Clonar o repositório
 
 ```bash
 git clone https://github.com/rafaelberrocalj/calendario-mirassolfc
 cd calendario-mirassolfc
 ```
 
-## 2️⃣ Instale as dependências
+### 2️⃣ Instalar dependências
 
 ```bash
 pip install -r requirements.txt
 ```
 
-## 3️⃣ Execute o script
+### 3️⃣ Executar o scraper
 
 ```bash
-./run.sh
+./run.sh scrape
 ```
 
-O arquivo gerado será:
+Isso gerará/atualizará o arquivo `mirassolfc.ics`.
 
-```
-mirassolfc.ics
-```
+### 4️⃣ Comandos disponíveis
 
-Esse arquivo pode ser importado manualmente em qualquer aplicativo de calendário.
-
----
-
-# 📂 Estrutura do Projeto
-
-```
-calendar_cli.py      # Interface de linha de comando
-calendar_utils.py    # Funções auxiliares
-scraper.py           # Busca e organiza os jogos do Mirassol Futebol Clube
-mirassolfc.ics       # Arquivo final do calendário
-run.sh               # Script de execução
+```bash
+./run.sh scrape              # Executa web scraper
+./run.sh list                # Lista calendários
+./run.sh create <nome>       # Cria novo calendário
+./run.sh update              # Sincroniza com Google Calendar
+./run.sh share <email>       # Compartilha calendário
+./run.sh delete <id>         # Deleta calendário
+./run.sh info <id>           # Informações do calendário
 ```
 
 ---
 
-# 💡 Por Que Usar Este Calendário do Mirassol Futebol Clube?
+## 📂 Estrutura do Projeto
 
-✔ Centraliza todos os jogos do Mirassol  
-✔ Facilita acompanhar a temporada 2026  
-✔ Evita perder partidas importantes  
-✔ Funciona com Google Calendar  
-✔ Projeto open-source
-
-Se você pesquisou por:
-
-- calendário Mirassol Futebol Clube 2026
-- jogos do Mirassol hoje
-- próximos jogos do Mirassol
-- agenda Mirassol atualizada
-
-Você encontrou a solução certa.
+```
+calendario-mirassolfc/
+├── .github/workflows/
+│   └── sync-google-calendar.yml    # Automação GitHub Actions
+├── scraper.py                      # Web scraper do ESPN Brasil
+├── calendar_cli.py                 # Interface de linha de comando
+├── calendar_utils.py               # Funções auxiliares
+├── mirassolfc.ics                  # Arquivo calendário gerado
+├── run.sh                          # Script de execução
+├── requirements.txt                # Dependências Python
+└── README.md                       # Este arquivo
+```
 
 ---
 
-# 🤝 Contribuições
+## 🔑 Principais Características
 
-Quer melhorar o calendário do Mirassol Futebol Clube?
+### 🔄 Sincronização Inteligente
 
-1. Faça um fork
-2. Crie uma branch
-3. Envie um Pull Request
+- Detecta automaticamente mudanças nos dados dos jogos
+- Preserva timestamps de eventos não alterados
+- Reduz commits desnecessários no Git
+- Atualiza Google Calendar apenas quando há mudanças reais
+
+### 🌐 Multi-Plataforma
+
+- Google Calendar
+- Apple Calendar (iCloud)
+- Outlook
+- Mozilla Thunderbird
+- Qualquer aplicativo que suporte .ics
+
+### 🔐 Segurança
+
+- Credenciais armazenadas em GitHub Secrets
+- Chaves de autenticação removidas após execução
+- Arquivo `.ics` público para compartilhamento
+
+### ⚡ Performance
+
+- Retry automático com backoff exponencial
+- Cache inteligente para evitar bloqueios
+- Parsing otimizado de dados
+
+---
+
+## 📋 Tecnologias Utilizadas
+
+- **Python 3.12** - Linguagem principal
+- **BeautifulSoup4** - Web scraping
+- **Requests** - HTTP client
+- **iCalendar** - Geração de arquivos .ics
+- **Google Calendar API** - Integração com Google
+- **GitHub Actions** - Automação CI/CD
+
+---
+
+## 🚀 Configuração de Automação
+
+O projeto utiliza **GitHub Actions** para automação contínua:
+
+**Arquivo:** `.github/workflows/sync-google-calendar.yml`
+
+**Comportamento:**
+
+- ✅ Executa todo dia às **23h30 (Brasília)** = 2h30 UTC
+- ✅ Pode ser disparado manualmente via `workflow_dispatch`
+- ✅ Scrapa dados do ESPN Brasil
+- ✅ Sincroniza com Google Calendar
+- ✅ Faz commit automático de mudanças
+
+**Para usar:**
+
+1. Configure a secrets `SERVICE_ACCOUNT_KEY` no repositório com suas credenciais Google
+2. A automação rodará automaticamente todos os dias às 23h30
+
+---
+
+## 💡 Por Que Usar Este Calendário?
+
+✔️ **Atualizado automaticamente** - Sem necessidade de atualizar manualmente
+✔️ **Dados precisos** - Retirados diretamente do ESPN Brasil
+✔️ **Multi-plataforma** - Funciona em qualquer calendário que suporte .ics
+✔️ **Otimizado** - Só atualiza o que mudou realmente
+✔️ **Open-source** - Código aberto para contribuições
+✔️ **Rastreável** - Histórico completo no Git
+
+---
+
+## 🤝 Contribuir
+
+Quer melhorar o projeto? Sua contribuição é bem-vinda!
+
+1. Faça um **fork** do repositório
+2. Crie uma **branch** para sua feature (`git checkout -b feature/melhoria`)
+3. Faça **commit** das mudanças (`git commit -m 'Adiciona melhoria'`)
+4. Faça **push** para a branch (`git push origin feature/melhoria`)
+5. Abra um **Pull Request**
 
 Sugestões também podem ser abertas como Issues.
 
 ---
 
-# 🔎 SEO Keywords
+## 📝 Licença
 
-calendário Mirassol Futebol Clube 2026  
-jogos do Mirassol hoje  
-tabela Mirassol atualizada  
-agenda Mirassol Google Calendar  
-arquivo ICS Mirassol  
-próximos jogos do Mirassol  
-Mirassol Futebol Clube calendário
+Este projeto está disponível sob licença open-source.
+
+---
+
+## 🔍 Keywords SEO
+
+calendário Mirassol Futebol Clube 2026 • jogos do Mirassol hoje • tabela Mirassol • agenda Mirassol Google Calendar • arquivo ICS Mirassol • próximos jogos do Mirassol • Mirassol Futebol Clube calendário • jogos Mirassol 2026 • resultados Mirassol • Mirassol vs Palmeiras • Mirassol vs Santos
+
+---
+
+**Última atualização:** Fevereiro de 2026
+**Mantido por:** [@rafaelberrocalj](https://github.com/rafaelberrocalj)
