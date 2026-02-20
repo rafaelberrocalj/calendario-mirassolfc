@@ -81,7 +81,7 @@ graph LR
 
 ## 📊 Estatísticas de Uso
 
-Última atualização: **19/02/2026 às 04:31** (Brasília)
+Última atualização: **20/02/2026 às 04:27** (Brasília)
 
 - 👥 **Usuários diretos:** 3
 - 👨‍💼 **Grupos:** 0
