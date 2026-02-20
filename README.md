@@ -78,7 +78,6 @@ graph LR
 
 ---
 
-
 ## 📊 Estatísticas de Uso
 
 Última atualização: **20/02/2026 às 04:27** (Brasília)
