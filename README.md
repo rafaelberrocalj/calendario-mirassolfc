@@ -60,8 +60,8 @@ Os dados são **atualizados diariamente** de forma automática via GitHub Action
 
 ## ⚙️ Como Funciona a Automação
 
-
 ---
+
 ## 📊 Estatísticas de Uso
 
 Última atualização: **20/02/2026 às 14:34** (Brasília)
@@ -91,8 +91,6 @@ graph LR
 - 💾 Faz commit apenas de mudanças reais
 
 ---
-
-
 
 ## 🛠️ Como Usar Localmente
 
@@ -247,8 +245,3 @@ Este projeto está disponível sob licença open-source.
 ## 🔍 Keywords SEO
 
 calendário Mirassol Futebol Clube 2026 • jogos do Mirassol hoje • tabela Mirassol • agenda Mirassol Google Calendar • arquivo ICS Mirassol • próximos jogos do Mirassol • Mirassol Futebol Clube calendário • jogos Mirassol 2026 • resultados Mirassol • Mirassol vs Palmeiras • Mirassol vs Santos
-
----
-
-**Última atualização:** Fevereiro de 2026
-**Mantido por:** [@rafaelberrocalj](https://github.com/rafaelberrocalj)
