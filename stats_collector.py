@@ -43,26 +43,33 @@ def update_readme_stats(users_info: dict) -> None:
 
 ---"""
 
-    # Procura pela seção de estatísticas existente
-    # Pattern: Busca por "## 📊 Estatísticas de Uso" até o próximo "## " ou fim do arquivo
-    pattern = r"## 📊 Estatísticas de Uso\n\n.*?(?=\n---\n(?:##|$))"
-    match = re.search(pattern, content, re.DOTALL)
+    # Remove qualquer bloco de estatísticas existente para evitar duplicação.
+    # Az abordagem anterior só removia o primeiro bloco, deixando um segundo
+    # antigo cair para trás; aqui removemos **todos** os blocos já existentes
+    # antes de fazer qualquer inserção.
+    remove_pattern = r"## 📊 Estatísticas de Uso[\s\S]*?---\n"
+    content = re.sub(remove_pattern, "", content, flags=re.DOTALL)
 
-    if match:
-        # Substitui o bloco existente
-        content = content[: match.start()] + stats_block + content[match.end() :]
-        print("✅ Estatísticas atualizadas no README")
+    # Agora que não existem blocos, localizamos o separador que termina a
+    # seção "Como Funciona a Automação" e inserimos o novo bloco imediatamente
+    # após ele (mantendo a ordem original do README).
+    sep_pattern = r"(## ⚙️ Como Funciona a Automação[\s\S]*?\n---\n)"
+    if re.search(sep_pattern, content):
+        content = re.sub(
+            sep_pattern,
+            r"\1" + stats_block + "\n",
+            content,
+            count=1,
+        )
+        print("✅ Estatísticas inseridas/atualizadas no README")
     else:
-        # Se não encontrar, insere após a seção "Como Funciona a Automação"
-        insert_pattern = r"(## ⚙️ Como Funciona a Automação\n\n[^#]*?---\n*)"
-        if re.search(insert_pattern, content):
-            content = re.sub(
-                insert_pattern, r"\1\n" + stats_block + "\n", content, count=1
-            )
-            print("✅ Seção de estatísticas criada no README")
-        else:
-            print("❌ Não foi possível localizar local de inserção no README")
-            return
+        # Se não encontrar o ponto esperado, colocamos o bloco no final como
+        # fallback; isso garante que não haverá duplicações mesmo em casos
+        # de formatação inesperada.
+        content = content.strip() + "\n\n" + stats_block + "\n"
+        print(
+            "⚠️ Seção de automação não encontrada; estatísticas adicionadas ao fim do README"
+        )
 
     # Salva o arquivo atualizado
     with open(readme_path, "w", encoding="utf-8") as f:
