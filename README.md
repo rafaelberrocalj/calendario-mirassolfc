@@ -78,6 +78,18 @@ graph LR
 
 ---
 
+
+## 📊 Estatísticas de Uso
+
+Última atualização: **20/02/2026 às 14:28** (Brasília)
+
+- 👥 **Usuários diretos:** 3
+- 👨‍💼 **Grupos:** 0
+- 🏢 **Domínios:** 0
+- 🌐 **Acesso público:** Sim ✅
+- 📈 **Total de entradas de acesso:** 4
+
+---
 ## 📊 Estatísticas de Uso
 
 Última atualização: **20/02/2026 às 04:27** (Brasília)
