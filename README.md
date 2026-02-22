@@ -63,7 +63,7 @@ Os dados são **atualizados diariamente** de forma automática via GitHub Action
 ---
 ## 📊 Estatísticas de Uso
 
-Última atualização: **21/02/2026 às 04:17** (Brasília)
+Última atualização: **22/02/2026 às 04:30** (Brasília)
 
 - 👥 **Usuários diretos:** 3
 - 👨‍💼 **Grupos:** 0
