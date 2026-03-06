@@ -259,7 +259,7 @@ class MirassolScraper:
                         "score": score,
                         "championship": championship,
                         "status": "finished",
-                        "time": "18:00",
+                        "all_day": True,
                     }
                     self.games.append(game)
                     print(f"  ✓ {team1} {score} {team2} ({date_str})")
