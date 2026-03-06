@@ -19,7 +19,7 @@ Exemplo:
 import requests
 from bs4 import BeautifulSoup
 import re
-from datetime import datetime
+from datetime import datetime, timedelta
 import time
 import hashlib
 from urllib.parse import urljoin
@@ -154,22 +154,22 @@ class MirassolScraper:
             print(f"Erro ao parse da data '{date_str}': {e}")
             return None
 
-    def parse_time(self, time_str: str) -> str:
-        """Analisa hora em formato 'HH:MM' ou retorna padrão.
+    def parse_time(self, time_str: str) -> tuple:
+        """Analisa hora em formato 'HH:MM' ou detecta horário indefinido.
 
         Args:
             time_str: String de hora, ex: '18:30' ou 'A definir'
 
         Returns:
-            Hora em formato 'HH:MM' (padrão '18:00' se indefinido)
+            Tupla (hora_str, all_day) onde all_day=True indica evento de dia inteiro
         """
         time_str = time_str.strip()
         if "definir" in time_str.lower() or not time_str:
-            return "18:00"  # Hora padrão para jogos sem horário definido
+            return ("00:00", True)  # Evento de dia inteiro
         try:
-            return time_str
+            return (time_str, False)
         except Exception:
-            return "18:00"
+            return ("00:00", True)
 
     def parse_score(self, score_str: str) -> Optional[str]:
         """Analisa placar no formato 'X - Y'.
@@ -300,17 +300,20 @@ class MirassolScraper:
                     if not date_obj:
                         continue
 
+                    parsed_time, all_day = self.parse_time(time_str)
                     game: Dict[str, Any] = {
                         "date": date_obj,
                         "team1": team1,
                         "team2": team2,
-                        "time": self.parse_time(time_str),
+                        "time": parsed_time,
+                        "all_day": all_day,
                         "championship": championship,
                         "status": "scheduled",
                         "score": None,
                     }
                     self.games.append(game)
-                    print(f"  ✓ {team1} vs {team2} ({date_str} {time_str})")
+                    time_display = "A definir" if all_day else time_str
+                    print(f"  ✓ {team1} vs {team2} ({date_str} {time_display})")
                 except Exception as e:
                     print(f"  Erro ao parse de linha: {e}")
                     continue
@@ -420,18 +423,26 @@ class MirassolScraper:
             ).hexdigest()
             uid = f"{event_id}@mirassol.local"
 
-            # Parse time
-            time_parts = game["time"].split(":")
-            hour = time_parts[0] if time_parts else "18"
-            minute = time_parts[1] if len(time_parts) > 1 else "00"
+            # Verifica se é evento de dia inteiro (horário indefinido)
+            all_day = game.get("all_day", False)
 
-            # Data e hora do evento
-            dt_start = game["date"].replace(hour=int(hour), minute=int(minute))
-            dt_start_str = dt_start.strftime("%Y%m%dT%H%M%S")
-            dt_end = dt_start.replace(
-                hour=dt_start.hour + 2
-            )  # Assume 2 horas de duração
-            dt_end_str = dt_end.strftime("%Y%m%dT%H%M%S")
+            if all_day:
+                # Evento de dia inteiro: usa formato DATE (sem hora)
+                dt_start_str = game["date"].strftime("%Y%m%d")
+                # Para eventos de dia inteiro no iCalendar, DTEND é o dia seguinte
+                dt_end_date = game["date"] + timedelta(days=1)
+                dt_end_str = dt_end_date.strftime("%Y%m%d")
+            else:
+                # Evento com horário definido
+                time_parts = game["time"].split(":")
+                hour = time_parts[0] if time_parts else "18"
+                minute = time_parts[1] if len(time_parts) > 1 else "00"
+                dt_start = game["date"].replace(hour=int(hour), minute=int(minute))
+                dt_start_str = dt_start.strftime("%Y%m%dT%H%M%S")
+                dt_end = dt_start.replace(
+                    hour=dt_start.hour + 2
+                )  # Assume 2 horas de duração
+                dt_end_str = dt_end.strftime("%Y%m%dT%H%M%S")
 
             # Descrição do evento
             if game["status"] == "finished":
@@ -464,17 +475,30 @@ class MirassolScraper:
             else:
                 changes_detected += 1
 
-            event = [
-                "BEGIN:VEVENT",
-                f"UID:{uid}",
-                f"DTSTAMP:{dtstamp}",
-                f"DTSTART;TZID=America/Sao_Paulo:{dt_start_str}",
-                f"DTEND;TZID=America/Sao_Paulo:{dt_end_str}",
-                f"SUMMARY:{summary}",
-                f"DESCRIPTION:{description}",
-                "STATUS:CONFIRMED",
-                "END:VEVENT",
-            ]
+            if all_day:
+                event = [
+                    "BEGIN:VEVENT",
+                    f"UID:{uid}",
+                    f"DTSTAMP:{dtstamp}",
+                    f"DTSTART;VALUE=DATE:{dt_start_str}",
+                    f"DTEND;VALUE=DATE:{dt_end_str}",
+                    f"SUMMARY:{summary}",
+                    f"DESCRIPTION:{description}",
+                    "STATUS:CONFIRMED",
+                    "END:VEVENT",
+                ]
+            else:
+                event = [
+                    "BEGIN:VEVENT",
+                    f"UID:{uid}",
+                    f"DTSTAMP:{dtstamp}",
+                    f"DTSTART;TZID=America/Sao_Paulo:{dt_start_str}",
+                    f"DTEND;TZID=America/Sao_Paulo:{dt_end_str}",
+                    f"SUMMARY:{summary}",
+                    f"DESCRIPTION:{description}",
+                    "STATUS:CONFIRMED",
+                    "END:VEVENT",
+                ]
 
             ics_content.extend(event)
 

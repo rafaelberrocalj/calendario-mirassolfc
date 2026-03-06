@@ -18,12 +18,13 @@ Este projeto disponibiliza um **arquivo ICS sincronizado diariamente** com os da
 
 O **Calendário Mirassol Futebol Clube** é uma ferramenta **automatizada e open-source** que:
 
-✅ Consulta automaticamente o ESPN Brasil todo dia às 23h30 (Brasília)
-✅ Gera um calendário `.ics` com todos os jogos do Mirassol
-✅ Sincroniza resultados e próximas partidas em tempo real
-✅ Atualiza apenas eventos que sofreram mudanças (preserva timestamps)
-✅ Integra com Google Calendar e outros aplicativos
-✅ Funciona com múltiplos campeonatos do clube
+- ✅ Consulta automaticamente o ESPN Brasil todo dia às 23h30 (Brasília)
+- ✅ Gera um calendário `.ics` com todos os jogos do Mirassol
+- ✅ Sincroniza resultados e próximas partidas em tempo real
+- ✅ Atualiza apenas eventos que sofreram mudanças (preserva timestamps)
+- ✅ Integra com Google Calendar e outros aplicativos
+- ✅ Funciona com múltiplos campeonatos do clube
+- ✅ Jogos com horário definido aparecem com a hora exata; jogos sem horário aparecem como **evento de dia inteiro**
 
 Você nunca mais precisa pesquisar manualmente pelos jogos do Mirassol.
 
@@ -38,7 +39,8 @@ Clique no botão abaixo para adicionar o calendário do Mirassol Futebol Clube a
 Após adicionar, os eventos aparecerão automaticamente em sua agenda com:
 
 - Datas oficiais dos jogos
-- Horários atualizados
+- Horários atualizados (quando definidos)
+- **Evento de dia inteiro** para jogos com horário "A definir"
 - Confrontos (Mirassol vs Adversário)
 - Competição/Campeonato
 - Resultados (quando finalizados)
@@ -58,9 +60,6 @@ Os dados são **atualizados diariamente** de forma automática via GitHub Action
 
 ---
 
-## ⚙️ Como Funciona a Automação
-
----
 ## 📊 Estatísticas de Uso
 
 Última atualização: **05/03/2026 às 04:23** (Brasília)
@@ -72,16 +71,6 @@ Os dados são **atualizados diariamente** de forma automática via GitHub Action
 - 📈 **Total de entradas de acesso:** 4
 
 ---
-
-
-```mermaid
-graph LR
-    A["ESPN Brasil"] -->|Scraping| B["Web Scraper"]
-    B -->|Extrai dados| C["Gera mirassolfc.ics"]
-    C -->|Compara mudancas| D["Preserva timestamps"]
-    D -->|Atualiza eventos| E["Google Calendar"]
-    F["Schedule Diario 23h30"] -->|Dispara| B
-```
 
 **Cronograma:**
 
@@ -156,6 +145,8 @@ calendario-mirassolfc/
 - Preserva timestamps de eventos não alterados
 - Reduz commits desnecessários no Git
 - Atualiza Google Calendar apenas quando há mudanças reais
+- Jogos com horário definido usam eventos com hora (`DTSTART;TZID`)
+- Jogos com **"A definir"** são criados como **eventos de dia inteiro** (`DTSTART;VALUE=DATE`)
 
 ### 🌐 Multi-Plataforma
 
