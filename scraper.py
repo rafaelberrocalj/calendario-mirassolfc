@@ -439,9 +439,7 @@ class MirassolScraper:
                 minute = time_parts[1] if len(time_parts) > 1 else "00"
                 dt_start = game["date"].replace(hour=int(hour), minute=int(minute))
                 dt_start_str = dt_start.strftime("%Y%m%dT%H%M%S")
-                dt_end = dt_start.replace(
-                    hour=dt_start.hour + 2
-                )  # Assume 2 horas de duração
+                dt_end = dt_start + timedelta(hours=2)  # Assume 2 horas de duração
                 dt_end_str = dt_end.strftime("%Y%m%dT%H%M%S")
 
             # Descrição do evento
