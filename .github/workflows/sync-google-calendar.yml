@@ -49,12 +49,7 @@ jobs:
           python calendar_cli.py update -c -y
           echo "✅ Calendário sincronizado via calendar_cli.py"
 
-      - name: 📊 Coletar estatísticas de uso
-        env:
-          SERVICE_ACCOUNT_KEY: ${{ secrets.SERVICE_ACCOUNT_KEY }}
-        run: |
-          python stats_collector.py
-          echo "✅ Estatísticas coletadas e README atualizado"
+
 
       - name: 🧹 Limpar credenciais
         if: always()
@@ -69,10 +64,10 @@ jobs:
       
       - name: 📤 Fazer commit de mudanças
         run: |
-          git add mirassolfc.ics README.md || true
+          git add mirassolfc.ics || true
 
           if git diff --staged --quiet; then
-            echo "📭 Nenhuma mudança no .ics ou README"
+            echo "📭 Nenhuma mudança no calendário — nada para commitar"
           else
             git commit -m "📅 Atualização automática do calendário [skip ci]"
             echo "✅ Commit realizado"
