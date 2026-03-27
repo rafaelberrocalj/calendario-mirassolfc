@@ -16,7 +16,7 @@ Depois de adicionar, os jogos vão aparecer na sua agenda com:
 
 - 📅 Data e horário de cada partida
 - 🏆 Nome do campeonato (Paulistão, Brasileirão, Copa do Brasil...)
-- ⚽ Adversário (ex: Mirassol x Santos)
+- ⚽ Adversário de cada partida
 - 🏁 Resultado, quando o jogo terminar
 
 > **Jogos sem horário definido** aparecem como evento de dia inteiro, e são atualizados assim que o horário for confirmado.
@@ -37,20 +37,10 @@ Se você usa outro app de agenda, pode importar o arquivo de calendário diretam
 Todo dia, um robô busca automaticamente os dados dos jogos do Mirassol no ESPN Brasil e atualiza o calendário. Você não precisa fazer nada — a agenda se mantém sempre atualizada.
 
 Os campeonatos incluídos são:
-- Campeonato Paulista
-- Campeonato Brasileiro (Série A)
-- Copa do Brasil
-- Outras competições oficiais
+- 🏆 Campeonato Paulista 2026
+- 🏆 Campeonato Brasileiro (Série A) 2026
+- 🏆 Copa do Brasil 2026
+- 🏆 CONMEBOL Libertadores 2026
 
 ---
 
-## ❓ Precisa de ajuda?
-
-Se o calendário não abriu ou você tiver alguma dúvida, abra um **[chamado aqui](https://github.com/rafaelberrocalj/calendario-mirassolfc/issues)**.
-
----
-
-<!-- SEO -->
-<meta name="description" content="Calendário do Mirassol Futebol Clube 2026 com todos os jogos, datas e horários atualizados automaticamente. Adicione ao Google Calendar, Apple Calendar ou Outlook.">
-
-calendário Mirassol Futebol Clube · jogos do Mirassol hoje · próximos jogos do Mirassol · tabela Mirassol 2026 · Mirassol FC agenda · Mirassol Futebol Clube Google Calendar · jogos Mirassol Brasileirão · jogos Mirassol Paulistão · Copa do Brasil Mirassol · resultados Mirassol FC
