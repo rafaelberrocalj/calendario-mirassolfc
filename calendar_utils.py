@@ -453,24 +453,20 @@ class EventManager:
         self.service: Any = service or CalendarAuth.authenticate()
 
     def list_events(
-        self, calendar_id: str, max_results: int = 50
+        self, calendar_id: str, max_results: int = 2500
     ) -> List[Dict[str, Any]]:
         """Lista eventos de um calendário.
 
         Args:
             calendar_id: ID do calendário
-            max_results: Número máximo de eventos a retornar (padrão: 50)
+            max_results: Número máximo de eventos a retornar (padrão: 2500)
 
         Returns:
             Lista de eventos
         """
         try:
-            events = (
-                self.service.events()
-                .list(calendarId=calendar_id, maxResults=max_results)
-                .execute()
-            )
-            return events.get("items", [])
+            events = self._list_all_events(calendar_id)
+            return events[:max_results]
         except HttpError as e:
             print(f"❌ Erro ao listar eventos: {e}")
             return []
@@ -485,14 +481,8 @@ class EventManager:
             Número de eventos deletados
         """
         try:
-            events = (
-                self.service.events()
-                .list(calendarId=calendar_id, maxResults=2500)
-                .execute()
-            )
-
             event_count: int = 0
-            for event in events.get("items", []):
+            for event in self._list_all_events(calendar_id):
                 self.service.events().delete(
                     calendarId=calendar_id, eventId=event["id"]
                 ).execute()
@@ -525,6 +515,102 @@ class EventManager:
             print(f"❌ Erro ao criar evento: {e}")
             return None
 
+    def _list_all_events(self, calendar_id: str) -> List[Dict[str, Any]]:
+        """Lista todos os eventos de um calendário, percorrendo paginação."""
+        all_events: List[Dict[str, Any]] = []
+        page_token: Optional[str] = None
+
+        while True:
+            response = (
+                self.service.events()
+                .list(
+                    calendarId=calendar_id,
+                    maxResults=2500,
+                    pageToken=page_token,
+                    singleEvents=True,
+                )
+                .execute()
+            )
+            all_events.extend(response.get("items", []))
+            page_token = response.get("nextPageToken")
+            if not page_token:
+                break
+
+        return all_events
+
+    @staticmethod
+    def _build_event_lookup_key(event: Dict[str, Any]) -> Optional[Tuple[str, str]]:
+        """Gera chave de fallback para reconciliar eventos legados."""
+        summary = str(event.get("summary", "")).strip()
+        start = event.get("start", {})
+        start_value = start.get("dateTime") or start.get("date")
+
+        if not summary or not start_value:
+            return None
+
+        return (summary, str(start_value))
+
+    def _get_existing_events_map(self, calendar_id: str) -> Dict[str, Dict[str, Any]]:
+        """Indexa eventos existentes por UID estável e por chave legada."""
+        events_map: Dict[str, Dict[str, Any]] = {}
+
+        for existing_event in self._list_all_events(calendar_id):
+            private_props = existing_event.get("extendedProperties", {}).get(
+                "private", {}
+            )
+            source_uid = private_props.get("mirassol_uid")
+            if source_uid:
+                events_map[f"uid:{source_uid}"] = existing_event
+
+            lookup_key = self._build_event_lookup_key(existing_event)
+            if lookup_key:
+                events_map[f"legacy:{lookup_key[0]}|{lookup_key[1]}"] = existing_event
+
+        return events_map
+
+    def _upsert_event(
+        self,
+        calendar_id: str,
+        event: Dict[str, Any],
+        existing_events: Dict[str, Dict[str, Any]],
+    ) -> Tuple[str, Dict[str, Any]]:
+        """Cria ou atualiza evento sem duplicar entradas existentes."""
+        source_uid = event["extendedProperties"]["private"]["mirassol_uid"]
+        lookup_key = self._build_event_lookup_key(event)
+
+        existing_event = existing_events.get(f"uid:{source_uid}")
+        if existing_event is None and lookup_key:
+            existing_event = existing_events.get(
+                f"legacy:{lookup_key[0]}|{lookup_key[1]}"
+            )
+
+        if existing_event:
+            updated_event = (
+                self.service.events()
+                .update(
+                    calendarId=calendar_id,
+                    eventId=existing_event["id"],
+                    body=event,
+                )
+                .execute()
+            )
+            result = "updated"
+            stored_event = updated_event
+        else:
+            created_event = (
+                self.service.events()
+                .insert(calendarId=calendar_id, body=event)
+                .execute()
+            )
+            result = "created"
+            stored_event = created_event
+
+        existing_events[f"uid:{source_uid}"] = stored_event
+        if lookup_key:
+            existing_events[f"legacy:{lookup_key[0]}|{lookup_key[1]}"] = stored_event
+
+        return result, stored_event
+
     def upload_events(self, calendar_id: str, vevents: List[Any]) -> Tuple[int, int]:
         """Faz upload de vários eventos a partir de arquivo iCalendar.
 
@@ -537,6 +623,7 @@ class EventManager:
         """
         successful = 0
         failed = 0
+        existing_events = self._get_existing_events_map(calendar_id)
 
         for idx, vevent in enumerate(vevents, 1):
             try:
@@ -547,15 +634,14 @@ class EventManager:
                     print(f"⚠️  [{idx}/{len(vevents)}] Evento inválido ou sem data")
                     continue
 
-                created_event = (
-                    self.service.events()
-                    .insert(calendarId=calendar_id, body=event)
-                    .execute()
+                action, synced_event = self._upsert_event(
+                    calendar_id, event, existing_events
                 )
 
                 successful += 1
                 print(
-                    f"✅ [{idx}/{len(vevents)}] {created_event.get('summary', 'Sem título')}"
+                    f"✅ [{idx}/{len(vevents)}] "
+                    f"{synced_event.get('summary', 'Sem título')} ({action})"
                 )
 
             except HttpError as e:
@@ -584,11 +670,12 @@ class EventManager:
         try:
             summary: str = vevent.get("summary", "Sem título")
             description: str = vevent.get("description", "")
+            uid: str = str(vevent.get("uid", "")).strip()
 
             dtstart: Optional[Any] = vevent.get("dtstart")
             dtend: Optional[Any] = vevent.get("dtend")
 
-            if dtstart is None:
+            if dtstart is None or not uid:
                 return None
 
             start_dt: Any = dtstart.dt
@@ -599,6 +686,7 @@ class EventManager:
                 "description": str(description) if description else "",
                 "start": EventManager._format_datetime(start_dt),
                 "end": EventManager._format_datetime(end_dt),
+                "extendedProperties": {"private": {"mirassol_uid": uid}},
             }
 
             return event
