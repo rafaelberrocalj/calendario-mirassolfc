@@ -1,5 +1,9 @@
 name: 📅 Sincronizar Google Calendar
 
+concurrency:
+  group: sync-google-calendar
+  cancel-in-progress: false
+
 on:
   schedule:
     # Roda diariamente às 23:30 de Brasília (02:30 UTC)
@@ -29,6 +33,10 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+      - name: 🧪 Rodar testes locais
+        run: |
+          python -m unittest discover -s tests -p "test_*.py"
+
       - name: 🔐 Configurar Service Account (GitHub Secret)
         env:
           SERVICE_ACCOUNT_KEY: ${{ secrets.SERVICE_ACCOUNT_KEY }}
@@ -46,7 +54,7 @@ jobs:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ github.workspace }}/service-account.json
           SERVICE_ACCOUNT_KEY: ${{ secrets.SERVICE_ACCOUNT_KEY }}
         run: |
-          python calendar_cli.py update -c -y
+          python calendar_cli.py update
           echo "✅ Calendário sincronizado via calendar_cli.py"
 
 
