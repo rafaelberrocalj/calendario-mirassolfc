@@ -17,22 +17,43 @@ Exemplo:
 """
 
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 from bs4 import BeautifulSoup
 import re
 from datetime import datetime, timedelta
 import time
 import hashlib
+import random
 from urllib.parse import urljoin
 from typing import List, Optional, Dict, Any
 
-# Headers para contornar proteção anti-bot do ESPN
+try:
+    import cloudscraper
+    CLOUDSCRAPER_AVAILABLE = True
+except ImportError:
+    CLOUDSCRAPER_AVAILABLE = False
+
+# Headers sofisticados para contornar proteção anti-bot do ESPN
+# Simula um navegador moderno com comportamento realista
 HEADERS: Dict[str, str] = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+    "Accept-Encoding": "gzip, deflate, br",
+    "Accept-Language": "pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7",
+    "Cache-Control": "no-cache",
+    "Pragma": "no-cache",
     "Referer": "https://www.espn.com.br/",
-    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-    "Accept-Language": "pt-BR,pt;q=0.9,en;q=0.8",
-    "Cache-Control": "max-age=0",
+    "Sec-CH-UA": '"Not_A Brand";v="8", "Chromium";v="123", "Google Chrome";v="123"',
+    "Sec-CH-UA-Mobile": "?0",
+    "Sec-CH-UA-Platform": '"macOS"',
+    "Sec-Fetch-Dest": "document",
+    "Sec-Fetch-Mode": "navigate",
+    "Sec-Fetch-Site": "same-origin",
+    "Sec-Fetch-User": "?1",
+    "Upgrade-Insecure-Requests": "1",
     "Connection": "keep-alive",
+    "DNT": "1",
 }
 
 
@@ -44,13 +65,45 @@ class MirassolScraper:
     """
 
     def __init__(self) -> None:
-        """Inicializa o scraper com sessão HTTP configurada."""
+        """Inicializa o scraper com sessão HTTP configurada.
+        
+        Configura retry strategy e headers sofisticados para contornar WAF.
+        Usa cloudscraper como fallback se disponível.
+        """
         self.session: requests.Session = requests.Session()
         self.session.headers.update(HEADERS)
+        
+        # Configurar retry strategy com backoff exponencial
+        retry_strategy = Retry(
+            total=5,
+            backoff_factor=1,
+            status_forcelist=[429, 500, 502, 503, 504],
+            allowed_methods=["HEAD", "GET", "OPTIONS"],
+        )
+        adapter = HTTPAdapter(max_retries=retry_strategy)
+        self.session.mount("https://", adapter)
+        self.session.mount("http://", adapter)
+        
+        # Simular navegador com cookies e comportamento realista
+        self.session.headers.update({
+            "Referer": "https://www.espn.com.br/futebol/",
+        })
+        
+        # Inicializar cloudscraper se disponível
+        self.cloudscraper_session = None
+        if CLOUDSCRAPER_AVAILABLE:
+            try:
+                self.cloudscraper_session = cloudscraper.create_scraper()
+                print("  ✓ Cloudscraper inicializado para bypass de WAF")
+            except Exception as e:
+                print(f"  ⚠️  Falha ao inicializar cloudscraper: {e}")
+        
         self.games: List[Dict[str, Any]] = []
 
     def fetch_page(self, url: str) -> str:
-        """Recupera página com retry automático e delay entre requisições.
+        """Recupera página com retry automático, delay variável e WAF bypass avançado.
+        
+        Tenta primeiro com requests normal, e se detectar WAF, tenta com cloudscraper.
 
         Args:
             url: URL da página a recuperar
@@ -61,19 +114,120 @@ class MirassolScraper:
         Raises:
             requests.exceptions.RequestException: Se todas as tentativas falharem
         """
-        max_retries: int = 3
-        for attempt in range(max_retries):
+        max_retries_requests: int = 3
+        max_retries_cloudscraper: int = 3
+        last_error = None
+        
+        # Fase 1: Tentar com requests normal
+        print(f"Tentando com requests normal...")
+        for attempt in range(max_retries_requests):
             try:
-                response: requests.Response = self.session.get(url, timeout=10)
+                # Delay variável e mais longo entre requisições para parecer natural
+                delay = random.uniform(2, 4) if attempt == 0 else random.uniform(5, 10)
+                print(f"  Tentativa {attempt + 1}/{max_retries_requests}... aguardando {delay:.1f}s")
+                time.sleep(delay)
+                
+                # Headers dinâmicos por requisição
+                request_headers = self.session.headers.copy()
+                request_headers.update({
+                    "Referer": self._get_referer(url),
+                    "Cache-Control": "no-cache",
+                    "Pragma": "no-cache",
+                })
+                
+                response: requests.Response = self.session.get(
+                    url,
+                    timeout=20,
+                    headers=request_headers,
+                    allow_redirects=True,
+                    verify=True
+                )
                 response.raise_for_status()
-                time.sleep(2)  # Delay para não sobrecarregar servidor
+                
+                # Verificar se AWS WAF bloqueou
+                if self._is_waf_blocked(response.text):
+                    print(f"  ⚠️  WAF detectado")
+                    if attempt == max_retries_requests - 1:
+                        print(f"  → Tentaremos com cloudscraper...")
+                    continue
+                
+                print(f"  ✓ HTML recuperado com sucesso (requests)")
                 return response.text
+                
             except requests.exceptions.RequestException as e:
-                print(f"Erro na tentativa {attempt + 1}: {e}")
-                if attempt < max_retries - 1:
-                    time.sleep(5 * (attempt + 1))  # Backoff exponencial
-                else:
-                    raise
+                last_error = e
+                print(f"  Erro: {str(e)[:100]}")
+        
+        # Fase 2: Se requests falhou, tentar com cloudscraper
+        if self.cloudscraper_session:
+            print(f"\nTentando com cloudscraper (bypass WAF)...")
+            for attempt in range(max_retries_cloudscraper):
+                try:
+                    delay = random.uniform(3, 6)
+                    print(f"  Tentativa {attempt + 1}/{max_retries_cloudscraper}... aguardando {delay:.1f}s")
+                    time.sleep(delay)
+                    
+                    response = self.cloudscraper_session.get(
+                        url,
+                        timeout=30,
+                        headers={"Referer": self._get_referer(url)},
+                        allow_redirects=True
+                    )
+                    response.raise_for_status()
+                    
+                    # Verificar se ainda há WAF
+                    if self._is_waf_blocked(response.text):
+                        print(f"  ⚠️  WAF ainda detectado")
+                        if attempt < max_retries_cloudscraper - 1:
+                            time.sleep(random.uniform(10, 20))
+                        continue
+                    
+                    print(f"  ✓ HTML recuperado com sucesso (cloudscraper)")
+                    return response.text
+                    
+                except Exception as e:
+                    print(f"  Erro: {str(e)[:100]}")
+                    last_error = e
+        else:
+            print(f"\n⚠️  Cloudscraper não disponível")
+        
+        # Levantou exceção após todas as tentativas
+        raise requests.exceptions.RequestException(
+            f"Falha ao recuperar página após todas as tentativas. Último erro: {last_error}"
+        )
+
+    def _is_waf_blocked(self, html: str) -> bool:
+        """Verifica se a resposta indica bloqueio do AWS WAF.
+        
+        Args:
+            html: Conteúdo HTML da resposta
+            
+        Returns:
+            True se WAF bloqueou, False caso contrário
+        """
+        waf_indicators = [
+            "awsWafCookieDomainList",
+            "AwsWafIntegration",
+            "Verify you are a human",
+            "JavaScript is disabled",
+            "window.location.reload",
+        ]
+        return any(indicator in html for indicator in waf_indicators)
+
+    def _get_referer(self, url: str) -> str:
+        """Retorna referer apropriado baseado na URL.
+        
+        Args:
+            url: URL sendo acessada
+            
+        Returns:
+            Referer apropriado para a requisição
+        """
+        if "calendario" in url:
+            return "https://www.espn.com.br/futebol/"
+        elif "resultados" in url:
+            return "https://www.espn.com.br/futebol/"
+        return "https://www.espn.com.br/"
 
     def parse_date(self, date_str: str) -> Optional[datetime]:
         """Analisa data no formato português para datetime.
