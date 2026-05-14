@@ -1,7 +1,16 @@
 # Credenciais Google Calendar
 service-account.json
+service-account*.json
 credentials.json
+credentials*.json
 token.pickle
+*.pem
+*.key
+*.p12
+*.p8
+.env
+.env.*
+*.env
 
 # Python Virtual Environments
 venv
