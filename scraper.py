@@ -25,8 +25,8 @@ from datetime import datetime, timedelta
 import time
 import hashlib
 import random
-from urllib.parse import urljoin
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Set
+from zoneinfo import ZoneInfo
 
 try:
     import cloudscraper
@@ -55,6 +55,17 @@ HEADERS: Dict[str, str] = {
     "Connection": "keep-alive",
     "DNT": "1",
 }
+
+ESPN_TEAM_ID = "9169"
+ESPN_DEFAULT_LEAGUES = (
+    "bra.1",
+    "bra.copa_do_brazil",
+    "conmebol.libertadores",
+    "bra.camp.paulista",
+)
+ESPN_REGION = "br"
+ESPN_LANGUAGE = "pt"
+SAO_PAULO_TZ = ZoneInfo("America/Sao_Paulo")
 
 
 class MirassolScraper:
@@ -116,7 +127,7 @@ class MirassolScraper:
         """
         max_retries_requests: int = 3
         max_retries_cloudscraper: int = 3
-        last_error = None
+        last_error = "nenhuma resposta recebida"
         
         # Fase 1: Tentar com requests normal
         print(f"Tentando com requests normal...")
@@ -146,7 +157,11 @@ class MirassolScraper:
                 
                 # Verificar se AWS WAF bloqueou
                 if self._is_waf_blocked(response.text):
-                    print(f"  ⚠️  WAF detectado")
+                    last_error = (
+                        f"WAF detectado em {url} "
+                        f"(status={response.status_code}, tamanho={len(response.text)})"
+                    )
+                    print(f"  ⚠️  {last_error}")
                     if attempt == max_retries_requests - 1:
                         print(f"  → Tentaremos com cloudscraper...")
                     continue
@@ -177,7 +192,11 @@ class MirassolScraper:
                     
                     # Verificar se ainda há WAF
                     if self._is_waf_blocked(response.text):
-                        print(f"  ⚠️  WAF ainda detectado")
+                        last_error = (
+                            f"WAF ainda detectado em {url} "
+                            f"(status={response.status_code}, tamanho={len(response.text)})"
+                        )
+                        print(f"  ⚠️  {last_error}")
                         if attempt < max_retries_cloudscraper - 1:
                             time.sleep(random.uniform(10, 20))
                         continue
@@ -194,6 +213,40 @@ class MirassolScraper:
         # Levantou exceção após todas as tentativas
         raise requests.exceptions.RequestException(
             f"Falha ao recuperar página após todas as tentativas. Último erro: {last_error}"
+        )
+
+    def fetch_json(self, url: str) -> Dict[str, Any]:
+        """Recupera JSON da API pública da ESPN com retry simples."""
+        last_error = "nenhuma resposta recebida"
+        headers = {
+            "Accept": "application/json",
+            "User-Agent": HEADERS["User-Agent"],
+            "Referer": "https://www.espn.com.br/futebol/",
+        }
+
+        for attempt in range(3):
+            try:
+                response = self.session.get(url, timeout=20, headers=headers)
+                content_type = response.headers.get("content-type", "")
+                response.raise_for_status()
+
+                if self._is_waf_blocked(response.text):
+                    last_error = (
+                        f"WAF detectado em JSON {url} "
+                        f"(status={response.status_code}, content-type={content_type})"
+                    )
+                    print(f"  ⚠️  {last_error}")
+                    continue
+
+                return response.json()
+            except Exception as e:
+                last_error = str(e)
+                print(f"  Erro JSON tentativa {attempt + 1}/3: {last_error[:140]}")
+                if attempt < 2:
+                    time.sleep(1 + attempt)
+
+        raise requests.exceptions.RequestException(
+            f"Falha ao recuperar JSON: {url}. Último erro: {last_error}"
         )
 
     def _is_waf_blocked(self, html: str) -> bool:
@@ -349,6 +402,188 @@ class MirassolScraper:
             return f"{parts[0].strip()} - {parts[1].strip()}"
         except Exception:
             return None
+
+    def scrape_json_api(self, year: Optional[int] = None) -> None:
+        """Scrapa jogos pela API JSON da ESPN, evitando o HTML protegido por WAF."""
+        season_year = year or datetime.now(SAO_PAULO_TZ).year
+        print(f"Buscando jogos pela ESPN JSON API ({season_year})")
+
+        seen_event_ids: Set[str] = set()
+        for league in ESPN_DEFAULT_LEAGUES:
+            events_url = (
+                "https://sports.core.api.espn.com/v2/sports/soccer/"
+                f"leagues/{league}/seasons/{season_year}/teams/{ESPN_TEAM_ID}/events"
+                f"?lang={ESPN_LANGUAGE}&region={ESPN_REGION}&limit=100"
+            )
+            print(f"  Liga {league}: buscando lista de eventos")
+            data = self.fetch_json(events_url)
+            items = data.get("items", [])
+            print(f"    {len(items)} referência(s) encontrada(s)")
+
+            for item in items:
+                event_id = self._extract_event_id(item)
+                if not event_id:
+                    print(f"    ⚠️  Evento sem ID ignorado: {item}")
+                    continue
+                if event_id in seen_event_ids:
+                    print(f"    ↪ Evento {event_id} duplicado ignorado")
+                    continue
+
+                summary_url = (
+                    "https://site.api.espn.com/apis/site/v2/sports/soccer/"
+                    f"{league}/summary?event={event_id}"
+                    f"&region={ESPN_REGION}&lang={ESPN_LANGUAGE}"
+                )
+                summary = self.fetch_json(summary_url)
+                game = self.parse_json_event(summary, event_id=event_id)
+                if not game:
+                    print(f"    ⚠️  Evento {event_id} sem dados suficientes")
+                    continue
+
+                seen_event_ids.add(event_id)
+                self.games.append(game)
+                self._print_json_game(game, event_id)
+
+    def _extract_event_id(self, item: Dict[str, Any]) -> Optional[str]:
+        """Extrai o ID do evento de uma referência Core da ESPN."""
+        if item.get("id"):
+            return str(item["id"])
+
+        ref = item.get("$ref", "")
+        match = re.search(r"/events/([^/?]+)", ref)
+        return match.group(1) if match else None
+
+    def parse_json_event(
+        self, payload: Dict[str, Any], event_id: Optional[str] = None
+    ) -> Optional[Dict[str, Any]]:
+        """Converte um resumo JSON da ESPN para o formato interno de jogo."""
+        header = payload.get("header") or {}
+        competitions = header.get("competitions") or []
+        if not competitions:
+            return None
+
+        competition = competitions[0]
+        competitors = competition.get("competitors") or []
+        home = self._find_competitor(competitors, "home")
+        away = self._find_competitor(competitors, "away")
+        if not home or not away:
+            return None
+
+        date_text = competition.get("date") or header.get("date")
+        local_datetime = self._parse_espn_datetime(date_text)
+        if not local_datetime:
+            return None
+        event_date = local_datetime.replace(hour=0, minute=0, second=0, microsecond=0)
+
+        status_type = (
+            (competition.get("status") or {}).get("type")
+            or (header.get("status") or {}).get("type")
+            or {}
+        )
+        completed = bool(status_type.get("completed"))
+        status_detail = " ".join(
+            str(status_type.get(key) or "")
+            for key in ("description", "detail", "shortDetail")
+        )
+        time_valid_values = [
+            value
+            for value in (competition.get("timeValid"), header.get("timeValid"))
+            if value is not None
+        ]
+        time_invalid = any(value is False for value in time_valid_values)
+        all_day = completed or time_invalid or "definir" in status_detail.lower()
+
+        championship = self._normalise_championship(
+            (header.get("league") or {}).get("name")
+            or (payload.get("league") or {}).get("name")
+            or ""
+        )
+
+        game: Dict[str, Any] = {
+            "date": event_date,
+            "team1": self._team_name(home),
+            "team2": self._team_name(away),
+            "championship": championship,
+            "status": "finished" if completed else "scheduled",
+            "all_day": all_day,
+            "event_id": event_id,
+        }
+
+        if completed:
+            home_score = self._score_value(home)
+            away_score = self._score_value(away)
+            if home_score is None or away_score is None:
+                return None
+            game["score"] = f"{home_score} - {away_score}"
+        else:
+            game["score"] = None
+            game["time"] = "00:00" if all_day else local_datetime.strftime("%H:%M")
+
+        return game
+
+    def _find_competitor(
+        self, competitors: List[Dict[str, Any]], home_away: str
+    ) -> Optional[Dict[str, Any]]:
+        for competitor in competitors:
+            if competitor.get("homeAway") == home_away:
+                return competitor
+        return None
+
+    def _team_name(self, competitor: Dict[str, Any]) -> str:
+        team = competitor.get("team") or {}
+        return team.get("displayName") or team.get("name") or ""
+
+    def _score_value(self, competitor: Dict[str, Any]) -> Optional[str]:
+        score = competitor.get("score")
+        if score is None:
+            return None
+        return str(score)
+
+    def _parse_espn_datetime(self, value: Optional[str]) -> Optional[datetime]:
+        if not value:
+            return None
+        try:
+            parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+            return parsed.astimezone(SAO_PAULO_TZ).replace(tzinfo=None)
+        except ValueError:
+            return None
+
+    def _normalise_championship(self, championship: str) -> str:
+        return re.sub(r"^\d{4}\s+", "", championship).strip()
+
+    def _print_json_game(self, game: Dict[str, Any], event_id: str) -> None:
+        if game["status"] == "finished":
+            print(
+                f"    ✓ {event_id}: {game['team1']} {game['score']} "
+                f"{game['team2']} ({game['championship']})"
+            )
+            return
+
+        time_display = "A definir" if game.get("all_day") else game.get("time")
+        print(
+            f"    ✓ {event_id}: {game['team1']} x {game['team2']} "
+            f"({game['championship']} - {time_display})"
+        )
+
+    def scrape_html_fallback(self) -> None:
+        """Executa o scraping HTML antigo como fallback explícito."""
+        print("ESPN JSON API falhou; tentando fallback HTML legado.")
+        self.scrape_results()
+        print()
+        self.scrape_calendar()
+
+    def sort_games_for_ics(self) -> None:
+        """Mantém ordem estável: resultados recentes primeiro, agenda em seguida."""
+        self.games.sort(
+            key=lambda game: (
+                0 if game.get("status") == "finished" else 1,
+                -game["date"].timestamp()
+                if game.get("status") == "finished"
+                else game["date"].timestamp(),
+                game.get("team1", ""),
+                game.get("team2", ""),
+            )
+        )
 
     def scrape_results(self) -> None:
         """Scrapa resultados já realizados de jogos do Mirassol FC.
@@ -682,10 +917,14 @@ class MirassolScraper:
             print("Mirassol FC - Web Scraper")
             print("=" * 60)
 
-            self.scrape_results()
-            print()
-            self.scrape_calendar()
+            try:
+                self.scrape_json_api()
+            except Exception as json_error:
+                print(f"\n⚠️  Falha na ESPN JSON API: {json_error}")
+                self.games = []
+                self.scrape_html_fallback()
 
+            self.sort_games_for_ics()
             print(f"\nTotal de jogos encontrados: {len(self.games)}")
             self.generate_ics()
 
