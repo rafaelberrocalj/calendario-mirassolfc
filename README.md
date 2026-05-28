@@ -34,13 +34,13 @@ Se você usa outro app de agenda, pode importar o arquivo de calendário diretam
 
 ## 🔄 Como funciona
 
-Todo dia, um robô busca automaticamente os dados dos jogos do Mirassol no ESPN Brasil e atualiza o calendário. Você não precisa fazer nada — a agenda se mantém sempre atualizada.
+Todo dia, um robô busca automaticamente os dados dos jogos do Mirassol na ESPN Brasil e atualiza o calendário. Você não precisa fazer nada — a agenda se mantém sempre atualizada.
 
 Os campeonatos incluídos são:
+
 - 🏆 Campeonato Paulista 2026
 - 🏆 Campeonato Brasileiro (Série A) 2026
 - 🏆 Copa do Brasil 2026
 - 🏆 CONMEBOL Libertadores 2026
 
 ---
-

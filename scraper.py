@@ -1,15 +1,12 @@
 #!/usr/bin/env python3
-"""Web scraper para sincronizar jogos do Mirassol FC com Google Calendar.
+"""Scraper via API para sincronizar jogos do Mirassol FC com Google Calendar.
 
-Este módulo extrai dados de jogos do Mirassol FC do site ESPN e gera um arquivo
-iCalendar (.ics) que pode ser importado no Google Calendar. Inclui suporte a
-tanto resultados já realizados quanto jogos agendados.
+Este módulo extrai dados de jogos do Mirassol FC da API pública da ESPN e gera
+um arquivo iCalendar (.ics) que pode ser importado no Google Calendar. Inclui
+suporte a resultados já realizados e jogos agendados.
 
 Uso:
     python scraper.py
-
-Atributos:
-    HEADERS (dict): Headers HTTP para contornar proteção anti-bot do ESPN.
 
 Exemplo:
     >>> scraper = MirassolScraper()
@@ -19,41 +16,16 @@ Exemplo:
 import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
-from bs4 import BeautifulSoup
 import re
 from datetime import datetime, timedelta
 import time
 import hashlib
-import random
 from typing import List, Optional, Dict, Any, Set
 from zoneinfo import ZoneInfo
 
-try:
-    import cloudscraper
-    CLOUDSCRAPER_AVAILABLE = True
-except ImportError:
-    CLOUDSCRAPER_AVAILABLE = False
-
-# Headers sofisticados para contornar proteção anti-bot do ESPN
-# Simula um navegador moderno com comportamento realista
 HEADERS: Dict[str, str] = {
-    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36",
-    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
-    "Accept-Encoding": "gzip, deflate, br",
-    "Accept-Language": "pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7",
-    "Cache-Control": "no-cache",
-    "Pragma": "no-cache",
     "Referer": "https://www.espn.com.br/",
-    "Sec-CH-UA": '"Not_A Brand";v="8", "Chromium";v="123", "Google Chrome";v="123"',
-    "Sec-CH-UA-Mobile": "?0",
-    "Sec-CH-UA-Platform": '"macOS"',
-    "Sec-Fetch-Dest": "document",
-    "Sec-Fetch-Mode": "navigate",
-    "Sec-Fetch-Site": "same-origin",
-    "Sec-Fetch-User": "?1",
-    "Upgrade-Insecure-Requests": "1",
-    "Connection": "keep-alive",
-    "DNT": "1",
+    "User-Agent": "calendario-mirassolfc/1.0",
 }
 
 ESPN_TEAM_ID = "9169"
@@ -69,22 +41,16 @@ SAO_PAULO_TZ = ZoneInfo("America/Sao_Paulo")
 
 
 class MirassolScraper:
-    """Scraper para extrair dados de jogos do Mirassol FC do ESPN.
+    """Scraper para extrair dados de jogos do Mirassol FC da ESPN.
 
-    Esta classe gerencia o scraping de dados do ESPN, incluindo resultados
-    e calendário de jogos do Mirassol FC, com suporte a geração de arquivo iCalendar.
+    Esta classe gerencia a coleta de dados da API JSON da ESPN e a geração do
+    arquivo iCalendar.
     """
 
     def __init__(self) -> None:
-        """Inicializa o scraper com sessão HTTP configurada.
-        
-        Configura retry strategy e headers sofisticados para contornar WAF.
-        Usa cloudscraper como fallback se disponível.
-        """
+        """Inicializa o scraper com sessão HTTP configurada."""
         self.session: requests.Session = requests.Session()
         self.session.headers.update(HEADERS)
-        
-        # Configurar retry strategy com backoff exponencial
         retry_strategy = Retry(
             total=5,
             backoff_factor=1,
@@ -94,126 +60,7 @@ class MirassolScraper:
         adapter = HTTPAdapter(max_retries=retry_strategy)
         self.session.mount("https://", adapter)
         self.session.mount("http://", adapter)
-        
-        # Simular navegador com cookies e comportamento realista
-        self.session.headers.update({
-            "Referer": "https://www.espn.com.br/futebol/",
-        })
-        
-        # Inicializar cloudscraper se disponível
-        self.cloudscraper_session = None
-        if CLOUDSCRAPER_AVAILABLE:
-            try:
-                self.cloudscraper_session = cloudscraper.create_scraper()
-                print("  ✓ Cloudscraper inicializado para bypass de WAF")
-            except Exception as e:
-                print(f"  ⚠️  Falha ao inicializar cloudscraper: {e}")
-        
         self.games: List[Dict[str, Any]] = []
-
-    def fetch_page(self, url: str) -> str:
-        """Recupera página com retry automático, delay variável e WAF bypass avançado.
-        
-        Tenta primeiro com requests normal, e se detectar WAF, tenta com cloudscraper.
-
-        Args:
-            url: URL da página a recuperar
-
-        Returns:
-            Conteúdo HTML da página
-
-        Raises:
-            requests.exceptions.RequestException: Se todas as tentativas falharem
-        """
-        max_retries_requests: int = 3
-        max_retries_cloudscraper: int = 3
-        last_error = "nenhuma resposta recebida"
-        
-        # Fase 1: Tentar com requests normal
-        print(f"Tentando com requests normal...")
-        for attempt in range(max_retries_requests):
-            try:
-                # Delay variável e mais longo entre requisições para parecer natural
-                delay = random.uniform(2, 4) if attempt == 0 else random.uniform(5, 10)
-                print(f"  Tentativa {attempt + 1}/{max_retries_requests}... aguardando {delay:.1f}s")
-                time.sleep(delay)
-                
-                # Headers dinâmicos por requisição
-                request_headers = self.session.headers.copy()
-                request_headers.update({
-                    "Referer": self._get_referer(url),
-                    "Cache-Control": "no-cache",
-                    "Pragma": "no-cache",
-                })
-                
-                response: requests.Response = self.session.get(
-                    url,
-                    timeout=20,
-                    headers=request_headers,
-                    allow_redirects=True,
-                    verify=True
-                )
-                response.raise_for_status()
-                
-                # Verificar se AWS WAF bloqueou
-                if self._is_waf_blocked(response.text):
-                    last_error = (
-                        f"WAF detectado em {url} "
-                        f"(status={response.status_code}, tamanho={len(response.text)})"
-                    )
-                    print(f"  ⚠️  {last_error}")
-                    if attempt == max_retries_requests - 1:
-                        print(f"  → Tentaremos com cloudscraper...")
-                    continue
-                
-                print(f"  ✓ HTML recuperado com sucesso (requests)")
-                return response.text
-                
-            except requests.exceptions.RequestException as e:
-                last_error = e
-                print(f"  Erro: {str(e)[:100]}")
-        
-        # Fase 2: Se requests falhou, tentar com cloudscraper
-        if self.cloudscraper_session:
-            print(f"\nTentando com cloudscraper (bypass WAF)...")
-            for attempt in range(max_retries_cloudscraper):
-                try:
-                    delay = random.uniform(3, 6)
-                    print(f"  Tentativa {attempt + 1}/{max_retries_cloudscraper}... aguardando {delay:.1f}s")
-                    time.sleep(delay)
-                    
-                    response = self.cloudscraper_session.get(
-                        url,
-                        timeout=30,
-                        headers={"Referer": self._get_referer(url)},
-                        allow_redirects=True
-                    )
-                    response.raise_for_status()
-                    
-                    # Verificar se ainda há WAF
-                    if self._is_waf_blocked(response.text):
-                        last_error = (
-                            f"WAF ainda detectado em {url} "
-                            f"(status={response.status_code}, tamanho={len(response.text)})"
-                        )
-                        print(f"  ⚠️  {last_error}")
-                        if attempt < max_retries_cloudscraper - 1:
-                            time.sleep(random.uniform(10, 20))
-                        continue
-                    
-                    print(f"  ✓ HTML recuperado com sucesso (cloudscraper)")
-                    return response.text
-                    
-                except Exception as e:
-                    print(f"  Erro: {str(e)[:100]}")
-                    last_error = e
-        else:
-            print(f"\n⚠️  Cloudscraper não disponível")
-        
-        # Levantou exceção após todas as tentativas
-        raise requests.exceptions.RequestException(
-            f"Falha ao recuperar página após todas as tentativas. Último erro: {last_error}"
-        )
 
     def fetch_json(self, url: str) -> Dict[str, Any]:
         """Recupera JSON da API pública da ESPN com retry simples."""
@@ -250,14 +97,7 @@ class MirassolScraper:
         )
 
     def _is_waf_blocked(self, html: str) -> bool:
-        """Verifica se a resposta indica bloqueio do AWS WAF.
-        
-        Args:
-            html: Conteúdo HTML da resposta
-            
-        Returns:
-            True se WAF bloqueou, False caso contrário
-        """
+        """Verifica se a resposta indica bloqueio do AWS WAF."""
         waf_indicators = [
             "awsWafCookieDomainList",
             "AwsWafIntegration",
@@ -266,142 +106,6 @@ class MirassolScraper:
             "window.location.reload",
         ]
         return any(indicator in html for indicator in waf_indicators)
-
-    def _get_referer(self, url: str) -> str:
-        """Retorna referer apropriado baseado na URL.
-        
-        Args:
-            url: URL sendo acessada
-            
-        Returns:
-            Referer apropriado para a requisição
-        """
-        if "calendario" in url:
-            return "https://www.espn.com.br/futebol/"
-        elif "resultados" in url:
-            return "https://www.espn.com.br/futebol/"
-        return "https://www.espn.com.br/"
-
-    def parse_date(self, date_str: str) -> Optional[datetime]:
-        """Analisa data no formato português para datetime.
-
-        Suporta formatos como 'dom., 8 fev.' ou 'qua., 11 fev.' e converte
-        para um objeto datetime. Se o ano não for especificado, assume 2026.
-
-        Args:
-            date_str: String de data em português para analisar
-
-        Returns:
-            Objeto datetime ou None se não conseguir analisar a data
-
-        Exemplo:
-            >>> scraper = MirassolScraper()
-            >>> result = scraper.parse_date('dom., 8 fev.')
-            >>> result.day
-            8
-        """
-        # Remove o dia da semana
-        date_str = re.sub(r"^[a-z]+\.,\s*", "", date_str, flags=re.IGNORECASE).strip()
-
-        # Mapa de meses em português para números
-        month_map: Dict[str, int] = {
-            "jan": 1,
-            "janeiro": 1,
-            "fev": 2,
-            "fevereiro": 2,
-            "mar": 3,
-            "março": 3,
-            "abr": 4,
-            "abril": 4,
-            "mai": 5,
-            "maio": 5,
-            "jun": 6,
-            "junho": 6,
-            "jul": 7,
-            "julho": 7,
-            "ago": 8,
-            "agosto": 8,
-            "set": 9,
-            "setembro": 9,
-            "out": 10,
-            "outubro": 10,
-            "nov": 11,
-            "novembro": 11,
-            "dez": 12,
-            "dezembro": 12,
-        }
-
-        try:
-            # Extrai dia e mês usando regex
-            match = re.search(r"(\d+)\s+([a-zç]+)", date_str, re.IGNORECASE)
-            if not match:
-                return None
-
-            day = int(match.group(1))
-            month_str = match.group(2).lower()
-
-            # Encontra mês correspondente
-            month_num = None
-            for abbr, num in month_map.items():
-                if month_str.startswith(abbr):
-                    month_num = num
-                    break
-
-            if not month_num:
-                return None
-
-            # Extrai ano se disponível, senão usa 2026
-            year_match = re.search(r"(\d{4})", date_str)
-            year = int(year_match.group(1)) if year_match else 2026
-
-            date_obj = datetime(year, month_num, day)
-            return date_obj
-
-        except Exception as e:
-            print(f"Erro ao parse da data '{date_str}': {e}")
-            return None
-
-    def parse_time(self, time_str: str) -> tuple:
-        """Analisa hora em formato 'HH:MM' ou detecta horário indefinido.
-
-        Args:
-            time_str: String de hora, ex: '18:30' ou 'A definir'
-
-        Returns:
-            Tupla (hora_str, all_day) onde all_day=True indica evento de dia inteiro
-        """
-        time_str = time_str.strip()
-        if "definir" in time_str.lower() or not time_str:
-            return ("00:00", True)  # Evento de dia inteiro
-        try:
-            return (time_str, False)
-        except Exception:
-            return ("00:00", True)
-
-    def parse_score(self, score_str: str) -> Optional[str]:
-        """Analisa placar no formato 'X - Y'.
-
-        Args:
-            score_str: String de placar, ex: '2 - 2'
-
-        Returns:
-            Placar formatado ou None se não houver placar válido
-
-        Exemplo:
-            >>> scraper = MirassolScraper()
-            >>> scraper.parse_score('2 - 2')
-            '2 - 2'
-            >>> scraper.parse_score('') is None
-            True
-        """
-        score_str = score_str.strip()
-        if not score_str or "-" not in score_str:
-            return None
-        try:
-            parts: List[str] = score_str.split("-")
-            return f"{parts[0].strip()} - {parts[1].strip()}"
-        except Exception:
-            return None
 
     def scrape_json_api(self, year: Optional[int] = None) -> None:
         """Scrapa jogos pela API JSON da ESPN, evitando o HTML protegido por WAF."""
@@ -565,13 +269,6 @@ class MirassolScraper:
             f"({game['championship']} - {time_display})"
         )
 
-    def scrape_html_fallback(self) -> None:
-        """Executa o scraping HTML antigo como fallback explícito."""
-        print("ESPN JSON API falhou; tentando fallback HTML legado.")
-        self.scrape_results()
-        print()
-        self.scrape_calendar()
-
     def sort_games_for_ics(self) -> None:
         """Mantém ordem estável: resultados recentes primeiro, agenda em seguida."""
         self.games.sort(
@@ -584,128 +281,6 @@ class MirassolScraper:
                 game.get("team2", ""),
             )
         )
-
-    def scrape_results(self) -> None:
-        """Scrapa resultados já realizados de jogos do Mirassol FC.
-
-        Acessa a página de resultados do ESPN e extrai informações como
-        datas, times, placares e campeonatos.
-        """
-        url = "https://www.espn.com.br/futebol/time/resultados/_/id/9169/bra.mirassol"
-        print(f"Buscando resultados de: {url}")
-
-        html = self.fetch_page(url)
-        soup = BeautifulSoup(html, "html.parser")
-
-        # Encontra todas as linhas de resultados
-        rows = soup.find_all("tr")
-
-        for row in rows:
-            cols = row.find_all("td")
-            if len(cols) >= 5:
-                try:
-                    date_str = cols[0].get_text(strip=True)
-                    team1 = cols[1].get_text(strip=True)
-                    score = cols[2].get_text(strip=True)
-                    team2 = cols[3].get_text(strip=True)
-                    championship = cols[4].get_text(strip=True) if len(cols) > 4 else ""
-                    # Heurística: às vezes a coluna contém o status (ex: 'Finalizado')
-                    # e o campeonato real está na coluna seguinte. Detectar palavras
-                    # de status e tentar obter o campeonato em cols[5].
-                    status_words = (
-                        "finalizado",
-                        "final",
-                        "encerrado",
-                        "terminado",
-                        "concluído",
-                        "concluido",
-                        "ft",
-                    )
-                    if (
-                        championship
-                        and championship.strip().lower() in status_words
-                        and len(cols) > 5
-                    ):
-                        alt = cols[5].get_text(strip=True)
-                        if alt and alt.strip().lower() not in status_words:
-                            championship = alt
-                    # Se ainda for só um status, limpar para não aparecer como campeonato
-                    if championship and championship.strip().lower() in status_words:
-                        championship = ""
-
-                    # Skip se não tem informação válida
-                    if not date_str or not team1 or not score:
-                        continue
-
-                    date_obj: Optional[datetime] = self.parse_date(date_str)
-                    if not date_obj:
-                        continue
-
-                    game: Dict[str, Any] = {
-                        "date": date_obj,
-                        "team1": team1,
-                        "team2": team2,
-                        "score": score,
-                        "championship": championship,
-                        "status": "finished",
-                        "all_day": True,
-                    }
-                    self.games.append(game)
-                    print(f"  ✓ {team1} {score} {team2} ({date_str})")
-                except Exception as e:
-                    print(f"  Erro ao parse de linha: {e}")
-                    continue
-
-    def scrape_calendar(self) -> None:
-        """Scrapa próximos jogos agendados do Mirassol FC.
-
-        Acessa a página de calendário do ESPN e extrai informações sobre
-        jogos já agendados.
-        """
-        url = "https://www.espn.com.br/futebol/time/calendario/_/id/9169/bra.mirassol"
-        print(f"Buscando calendário de: {url}")
-
-        html = self.fetch_page(url)
-        soup = BeautifulSoup(html, "html.parser")
-
-        # Encontra todas as linhas de calendário
-        rows = soup.find_all("tr")
-
-        for row in rows:
-            cols = row.find_all("td")
-            if len(cols) >= 5:
-                try:
-                    date_str = cols[0].get_text(strip=True)
-                    team1 = cols[1].get_text(strip=True)
-                    team2 = cols[3].get_text(strip=True)
-                    time_str = cols[4].get_text(strip=True)
-                    championship = cols[5].get_text(strip=True) if len(cols) > 5 else ""
-
-                    # Skip se não tem informação válida
-                    if not date_str or not team1 or not team2:
-                        continue
-
-                    date_obj: Optional[datetime] = self.parse_date(date_str)
-                    if not date_obj:
-                        continue
-
-                    parsed_time, all_day = self.parse_time(time_str)
-                    game: Dict[str, Any] = {
-                        "date": date_obj,
-                        "team1": team1,
-                        "team2": team2,
-                        "time": parsed_time,
-                        "all_day": all_day,
-                        "championship": championship,
-                        "status": "scheduled",
-                        "score": None,
-                    }
-                    self.games.append(game)
-                    time_display = "A definir" if all_day else time_str
-                    print(f"  ✓ {team1} vs {team2} ({date_str} {time_display})")
-                except Exception as e:
-                    print(f"  Erro ao parse de linha: {e}")
-                    continue
 
     def load_existing_events(
         self, ics_file: str = "mirassolfc.ics"
@@ -904,26 +479,20 @@ class MirassolScraper:
         return output_file
 
     def run(self) -> None:
-        """Executa scraping completo e gera arquivo iCalendar.
+        """Executa coleta pela API da ESPN e gera arquivo iCalendar.
 
-        Executa todas as etapas: scraping de resultados, scraping de calendário
-        e geração do arquivo .ics. Exibe sumário do progresso durante execução.
+        Executa todas as etapas da API JSON e gera o arquivo .ics. Exibe
+        sumário do progresso durante execução.
 
         Raises:
             Exception: Se ocorrer erro crítico durante scraping
         """
         try:
             print("=" * 60)
-            print("Mirassol FC - Web Scraper")
+            print("Mirassol FC - ESPN API Scraper")
             print("=" * 60)
 
-            try:
-                self.scrape_json_api()
-            except Exception as json_error:
-                print(f"\n⚠️  Falha na ESPN JSON API: {json_error}")
-                self.games = []
-                self.scrape_html_fallback()
-
+            self.scrape_json_api()
             self.sort_games_for_ics()
             print(f"\nTotal de jogos encontrados: {len(self.games)}")
             self.generate_ics()
@@ -941,7 +510,7 @@ if __name__ == "__main__":
     """Ponto de entrada principal do script.
 
     Cria uma instância do scraper e executa o processo completo
-    de extração de dados.
+    de coleta de dados.
     """
     scraper: MirassolScraper = MirassolScraper()
     scraper.run()

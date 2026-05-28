@@ -43,14 +43,14 @@ if [ $# -eq 0 ]; then
     echo "    Use -e para mostrar eventos"
     echo ""
     echo -e "${GREEN}  ./run.sh scrape${NC}"
-    echo "    Executar web scraper e atualizar .ics"
+    echo "    Executar scraper e atualizar .ics"
     echo ""
     exit 0
 fi
 
 # Comando especial: scrape (executa scraper.py)
 if [ "$1" = "scrape" ]; then
-    echo "🕷️  Executando web scraper..."
+    echo "Executando scraper..."
     $PYTHON scraper.py
     
     if ! git diff --quiet mirassolfc.ics; then
