@@ -44,3 +44,5 @@ Os campeonatos incluídos são:
 - 🏆 CONMEBOL Libertadores 2026
 
 ---
+
+- [Me pague um Café? @rafaelberrocalj](https://buymeacoffee.com/rafaelberrocalj)
