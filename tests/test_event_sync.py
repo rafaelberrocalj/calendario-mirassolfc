@@ -44,6 +44,13 @@ class FakeEventsResource:
                 return FakeRequest(updated)
         raise AssertionError(f"Evento não encontrado para update: {eventId}")
 
+    def delete(self, calendarId, eventId):
+        for index, event in enumerate(self.items):
+            if event["id"] == eventId:
+                del self.items[index]
+                return FakeRequest({})
+        raise AssertionError(f"Evento não encontrado para delete: {eventId}")
+
 
 class FakeCalendarService:
     def __init__(self):
@@ -133,6 +140,43 @@ class EventSyncTests(unittest.TestCase):
         self.assertEqual(
             stored_event["extendedProperties"]["private"]["mirassol_uid"],
             "legacy@mirassol.local",
+        )
+
+    def test_prune_orphaned_events_only_removes_managed_events(self):
+        self.service.events_resource.items.extend(
+            [
+                {
+                    "id": "current",
+                    "summary": "Mirassol x Santos - Brasileirao",
+                    "start": {"date": "2026-04-01"},
+                    "extendedProperties": {
+                        "private": {"mirassol_uid": "current@mirassol.local"}
+                    },
+                },
+                {
+                    "id": "orphan",
+                    "summary": "Mirassol x Santos - Data antiga",
+                    "start": {"date": "2026-03-31"},
+                    "extendedProperties": {
+                        "private": {"mirassol_uid": "orphan@mirassol.local"}
+                    },
+                },
+                {
+                    "id": "manual",
+                    "summary": "Evento manual",
+                    "start": {"date": "2026-04-02"},
+                },
+            ]
+        )
+
+        deleted = self.manager.prune_orphaned_events(
+            self.calendar_id, {"current@mirassol.local"}
+        )
+
+        self.assertEqual(deleted, 1)
+        self.assertEqual(
+            [event["id"] for event in self.service.events_resource.items],
+            ["current", "manual"],
         )
 
 

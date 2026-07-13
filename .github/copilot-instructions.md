@@ -5,16 +5,21 @@ Este projeto sincroniza jogos do Mirassol FC entre um scraper do ESPN, um arquiv
 ## O que o assistente deve entender antes de editar
 
 - `scraper.py` gera `mirassolfc.ics`.
-- `calendar_cli.py update` sincroniza o `.ics` com o Google Calendar.
+- `calendar_cli.py update --prune` sincroniza o `.ics` com o Google Calendar e remove órfãos gerenciados.
 - `calendar_utils.py` contém a lógica crítica de reconciliação de eventos.
 - O sistema já teve bug de duplicação por inserir tudo de novo em cada atualização.
+- O sistema já teve bug de órfãos quando o `UID` era baseado em data/horário e a ESPN remarcava jogos.
 
 ## Invariantes obrigatórios
 
 - A sincronização deve ser idempotente.
 - O `UID` de cada `VEVENT` precisa continuar sendo usado como chave estável.
+- O `UID` deve preferir o ID estável da ESPN, no formato `espn-<event_id>@mirassol.local`.
+- Não gerar `UID` a partir de data, horário ou placar; esses campos mudam e podem criar eventos órfãos.
 - O Google Calendar deve usar `extendedProperties.private.mirassol_uid` para reconciliar eventos.
 - `delete_all_events()` e `info` devem usar listagem completa com paginação.
+- `update --prune` deve remover apenas eventos gerenciados com `mirassol_uid` ausente do `.ics`.
+- Eventos manuais ou externos sem `mirassol_uid` não devem ser removidos por `--prune`.
 - Eventos sem horário definido devem continuar como all-day.
 
 ## Como validar uma alteração
@@ -24,7 +29,7 @@ Sempre sugerir ou executar esta ordem:
 ```bash
 ./.venv/bin/python -m unittest discover -s tests -p 'test_*.py'
 ./.venv/bin/python scraper.py
-./.venv/bin/python calendar_cli.py update
+./.venv/bin/python calendar_cli.py update --prune
 ./.venv/bin/python calendar_cli.py info -e
 ```
 
@@ -32,9 +37,9 @@ Se a mudança tocar no fluxo de duplicação:
 
 ```bash
 ./.venv/bin/python calendar_cli.py info -e
-./.venv/bin/python calendar_cli.py update -c -y
+./.venv/bin/python calendar_cli.py update --prune
 ./.venv/bin/python calendar_cli.py info -e
-./.venv/bin/python calendar_cli.py update
+./.venv/bin/python calendar_cli.py update --prune
 ./.venv/bin/python calendar_cli.py info -e
 ```
 
@@ -42,6 +47,8 @@ Se a mudança tocar no fluxo de duplicação:
 
 - Não reintroduzir `insert` cego para todos os eventos.
 - Não depender de `--clear` no workflow diário para manter consistência.
+- Não usar data/horário como chave primária do `UID`.
+- Não deixar `--prune` remover eventos sem `extendedProperties.private.mirassol_uid`.
 - Não usar listagens parciais da API do Google Calendar para contar ou deletar eventos.
 - Não alterar a estrutura do `README.md` sem revisar `stats_collector.py`.
 
@@ -51,5 +58,5 @@ Preservar em `.github/workflows/sync-google-calendar.yml`:
 
 - execução de testes antes da sincronização;
 - `concurrency` para evitar sobreposição;
-- atualização via `python calendar_cli.py update`;
+- atualização via `python calendar_cli.py update --prune`;
 - commit apenas de `mirassolfc.ics` quando houver diff.

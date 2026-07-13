@@ -54,7 +54,7 @@ jobs:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ github.workspace }}/service-account.json
           SERVICE_ACCOUNT_KEY: ${{ secrets.SERVICE_ACCOUNT_KEY }}
         run: |
-          python calendar_cli.py update
+          python calendar_cli.py update --prune
           echo "✅ Calendário sincronizado via calendar_cli.py"
 
 

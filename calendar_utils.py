@@ -25,7 +25,7 @@ import pickle
 import icalendar
 import pytz
 from datetime import datetime
-from typing import Optional, List, Tuple, Dict, Any
+from typing import Optional, List, Tuple, Dict, Any, Set
 
 from google.auth.transport.requests import Request
 from google.oauth2 import service_account
@@ -494,6 +494,37 @@ class EventManager:
             print(f"❌ Erro ao deletar eventos: {e}")
             return 0
 
+    def prune_orphaned_events(self, calendar_id: str, source_uids: Set[str]) -> int:
+        """Remove eventos gerenciados que não existem mais no arquivo fonte.
+
+        Apenas eventos com extendedProperties.private.mirassol_uid são removidos,
+        preservando qualquer evento manual ou externo no mesmo calendário.
+        """
+        try:
+            deleted_count = 0
+            for event in self._list_all_events(calendar_id):
+                private_props = event.get("extendedProperties", {}).get(
+                    "private", {}
+                )
+                source_uid = private_props.get("mirassol_uid")
+                if not source_uid or source_uid in source_uids:
+                    continue
+
+                self.service.events().delete(
+                    calendarId=calendar_id, eventId=event["id"]
+                ).execute()
+                deleted_count += 1
+                print(
+                    "🧹 Removido órfão: "
+                    f"{event.get('summary', 'Sem título')} ({source_uid})"
+                )
+
+            print(f"🧹 Órfãos removidos: {deleted_count}")
+            return deleted_count
+        except HttpError as e:
+            print(f"❌ Erro ao remover eventos órfãos: {e}")
+            return 0
+
     def create_event(self, calendar_id: str, event: Dict[str, Any]) -> Optional[str]:
         """Cria um evento no calendário.
 
@@ -750,3 +781,12 @@ class ICSManager:
 
         print(f"📄 Encontrados {len(events)} eventos no arquivo .ics")
         return events
+
+    @staticmethod
+    def source_uids(vevents: List[Any]) -> Set[str]:
+        """Extrai UIDs do arquivo iCalendar."""
+        return {
+            str(vevent.get("uid", "")).strip()
+            for vevent in vevents
+            if vevent.get("uid")
+        }

@@ -122,6 +122,21 @@ class ScraperJsonTests(unittest.TestCase):
         self.assertEqual(len(scraper.games), 1)
         self.assertEqual(scraper.games[0]["event_id"], "401")
 
+    def test_stable_event_uid_prefers_espn_event_id(self):
+        scraper = MirassolScraper.__new__(MirassolScraper)
+        game = {
+            "date": datetime(2026, 7, 17, 0, 0),
+            "team1": "Mirassol",
+            "team2": "Grêmio",
+            "championship": "Campeonato Brasileiro",
+            "event_id": "401841155",
+        }
+
+        self.assertEqual(scraper._stable_event_uid(game), "espn-401841155")
+
+        game["date"] = datetime(2026, 7, 18, 0, 0)
+        self.assertEqual(scraper._stable_event_uid(game), "espn-401841155")
+
 
 if __name__ == "__main__":
     unittest.main()

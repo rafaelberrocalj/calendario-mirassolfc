@@ -381,10 +381,10 @@ class MirassolScraper:
 
         # Eventos
         for game in self.games:
-            # Cria ID único para o evento
-            event_id = hashlib.md5(
-                f"{game['date']}{game['team1']}{game['team2']}".encode()
-            ).hexdigest()
+            # Usa o ID estável da ESPN quando disponível. Datas e horários mudam
+            # com frequência; se entrarem no UID, o Google Calendar fica com
+            # eventos antigos órfãos após remarcações.
+            event_id = self._stable_event_uid(game)
             uid = f"{event_id}@mirassol.local"
 
             # Verifica se é evento de dia inteiro (horário indefinido)
@@ -477,6 +477,18 @@ class MirassolScraper:
         else:
             print(f"  ℹ️  Nenhuma alteração necessária nos eventos")
         return output_file
+
+    def _stable_event_uid(self, game: Dict[str, Any]) -> str:
+        """Gera UID estável para reconciliação com Google Calendar."""
+        espn_event_id = str(game.get("event_id") or "").strip()
+        if espn_event_id:
+            return f"espn-{espn_event_id}"
+
+        fallback_key = (
+            f"{game.get('team1', '')}|{game.get('team2', '')}|"
+            f"{game.get('championship', '')}"
+        )
+        return hashlib.md5(fallback_key.encode()).hexdigest()
 
     def run(self) -> None:
         """Executa coleta pela API da ESPN e gera arquivo iCalendar.

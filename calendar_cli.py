@@ -214,6 +214,11 @@ class CalendarCLI:
             print("\n⬆️  Fazendo upload dos eventos...\n")
             successful, failed = self.event_manager.upload_events(cal_id, vevents)
 
+            if args.prune:
+                print("\n🧹 Removendo eventos órfãos...\n")
+                source_uids = ICSManager.source_uids(vevents)
+                self.event_manager.prune_orphaned_events(cal_id, source_uids)
+
             print(f"\n{'='*60}")
             print(f"✨ Sincronização concluída!")
             print(f"{'='*60}\n")
@@ -417,6 +422,11 @@ Exemplos de uso:
         "--yes",
         action="store_true",
         help="Confirmar automaticamente deleção de eventos (não interativo)",
+    )
+    update_parser.add_argument(
+        "--prune",
+        action="store_true",
+        help="Remover eventos gerenciados que não existem mais no .ics",
     )
     update_parser.set_defaults(func=lambda args: cli.cmd_update(args))
 

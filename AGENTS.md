@@ -7,8 +7,8 @@ Este repositório mantém o calendário público do Mirassol FC.
 O fluxo principal é:
 
 1. `scraper.py` coleta jogos e resultados no ESPN.
-2. O scraper gera `mirassolfc.ics` com `UID` estável por jogo.
-3. `calendar_cli.py update` sincroniza o `.ics` com o Google Calendar.
+2. O scraper gera `mirassolfc.ics` com `UID` estável por jogo, preferindo o ID do evento na ESPN.
+3. `calendar_cli.py update --prune` sincroniza o `.ics` com o Google Calendar e remove órfãos gerenciados.
 4. O workflow em `.github/workflows/sync-google-calendar.yml` roda esse processo automaticamente.
 
 O projeto precisa sempre garantir estas duas saídas:
@@ -35,11 +35,13 @@ O projeto precisa sempre garantir estas duas saídas:
 
 ### 1. A sincronização do Google Calendar deve ser idempotente
 
-Rodar `python calendar_cli.py update` duas vezes seguidas não pode aumentar a quantidade de eventos.
+Rodar `python calendar_cli.py update --prune` duas vezes seguidas não pode aumentar a quantidade de eventos.
 
 Ao alterar a sincronização:
 
 - preserve o `UID` do `.ics`;
+- gere `UID` a partir do ID estável da ESPN quando disponível, no formato `espn-<event_id>@mirassol.local`;
+- não volte a gerar `UID` a partir de data/horário, porque remarcações criam eventos órfãos no Google Calendar;
 - mantenha o uso de `extendedProperties.private.mirassol_uid`;
 - continue fazendo `update` quando o evento já existir;
 - use fallback para eventos legados quando necessário.
@@ -52,9 +54,16 @@ Ao mexer em exclusão ou listagem, preserve o uso da listagem completa com pagin
 ### 3. O `.ics` não deve gerar duplicatas internas
 
 Cada `VEVENT` precisa ter `UID` único e estável.
-O `UID` é gerado a partir de data + times e é parte central da reconciliação com o Google Calendar.
+O `UID` deve ser baseado no ID da ESPN sempre que esse ID existir.
+Data, horário, placar e mandante/visitante podem mudar e não devem ser usados como chave primária do `UID`.
 
-### 4. Jogos sem horário definido continuam como evento de dia inteiro
+### 4. `--prune` remove apenas órfãos gerenciados
+
+`calendar_cli.py update --prune` pode remover eventos que têm `extendedProperties.private.mirassol_uid` e cujo `UID` não existe mais no `.ics`.
+Não remova eventos manuais ou externos sem `mirassol_uid`.
+Use `--prune` para limpar eventos órfãos causados por mudanças antigas de UID ou remoção de jogos da fonte.
+
+### 5. Jogos sem horário definido continuam como evento de dia inteiro
 
 Se o horário estiver indefinido, o evento deve permanecer all-day no `.ics` e no Google Calendar.
 
@@ -69,16 +78,16 @@ Sempre que tocar em scraper, sincronização, workflow ou CLI:
 3. Verifique se `mirassolfc.ics` ficou coerente:
    `git diff -- mirassolfc.ics`
 4. Rode a sincronização:
-   `./.venv/bin/python calendar_cli.py update`
+   `./.venv/bin/python calendar_cli.py update --prune`
 5. Verifique a contagem no calendário:
    `./.venv/bin/python calendar_cli.py info -e`
 
 Se houver suspeita de duplicação:
 
 1. confira a contagem atual;
-2. rode `./.venv/bin/python calendar_cli.py update -c -y`;
+2. rode `./.venv/bin/python calendar_cli.py update --prune`;
 3. confira a contagem novamente;
-4. rode `./.venv/bin/python calendar_cli.py update`;
+4. rode `./.venv/bin/python calendar_cli.py update --prune`;
 5. confirme que a contagem permaneceu estável.
 
 ## Passo a Passo do Workflow
@@ -89,12 +98,13 @@ O workflow correto é:
 2. rodar testes;
 3. escrever `service-account.json` a partir do secret;
 4. rodar `scraper.py`;
-5. rodar `calendar_cli.py update`;
+5. rodar `calendar_cli.py update --prune`;
 6. remover credenciais locais;
 7. commitar `mirassolfc.ics` apenas se houver diff.
 
 Não volte para uma estratégia que dependa de `update -c -y` diariamente para esconder duplicação.
 `--clear` é ferramenta de recuperação, não mecanismo principal de sincronização.
+`--prune` é o mecanismo seguro para remover apenas eventos órfãos gerenciados pelo projeto.
 
 ## Credenciais e Segurança
 
@@ -114,7 +124,7 @@ Não volte para uma estratégia que dependa de `update -c -y` diariamente para e
 
 ```bash
 ./.venv/bin/python scraper.py
-./.venv/bin/python calendar_cli.py update
+./.venv/bin/python calendar_cli.py update --prune
 ./.venv/bin/python calendar_cli.py update -c -y
 ./.venv/bin/python calendar_cli.py info -e
 ./.venv/bin/python -m unittest discover -s tests -p 'test_*.py'
@@ -127,4 +137,5 @@ Uma mudança está correta quando:
 - os testes passam;
 - o `.ics` continua consistente;
 - a sincronização não duplica;
+- eventos órfãos gerenciados são removidos com `--prune`;
 - a contagem final no Google Calendar permanece estável entre execuções repetidas.
