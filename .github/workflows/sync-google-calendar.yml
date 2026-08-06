@@ -5,9 +5,9 @@ concurrency:
   cancel-in-progress: false
 
 on:
-  # schedule:
-  #   # Roda diariamente às 23:30 de Brasília (02:30 UTC)
-  #   - cron: '30 2 * * *'
+  schedule:
+    # Roda diariamente às 23:30 de Brasília (02:30 UTC)
+    - cron: '30 2 * * *'
   workflow_dispatch:
 
 permissions:
