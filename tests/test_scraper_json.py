@@ -48,6 +48,47 @@ def build_summary(
     }
 
 
+def build_core_summary(
+    *,
+    date="2026-05-16T21:30Z",
+    completed=False,
+    status_detail="5/16 - 18:30",
+    time_valid=None,
+    home_score=None,
+    away_score=None,
+):
+    competition = {
+        "date": date,
+        "competitors": [
+            {
+                "homeAway": "home",
+                "team": {"displayName": "Mirassol"},
+                "score": {"displayValue": home_score} if home_score is not None else None,
+            },
+            {
+                "homeAway": "away",
+                "team": {"displayName": "Santos"},
+                "score": {"displayValue": away_score} if away_score is not None else None,
+            },
+        ],
+        "status": {
+            "type": {
+                "completed": completed,
+                "description": "Finalizado" if completed else "Agendado",
+                "detail": status_detail,
+                "shortDetail": "F" if completed else status_detail,
+            }
+        },
+    }
+    if time_valid is not None:
+        competition["timeValid"] = time_valid
+
+    return {
+        "date": date,
+        "competitions": [competition],
+    }
+
+
 class FakeJsonScraper(MirassolScraper):
     def __init__(self, responses):
         self.games = []
@@ -113,7 +154,7 @@ class ScraperJsonTests(unittest.TestCase):
         scraper = FakeJsonScraper(
             {
                 "/teams/9169/events": list_payload,
-                "summary?event=401": build_summary(),
+                "/events/401?lang=pt&region=br": build_core_summary(),
             }
         )
 

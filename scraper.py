@@ -35,6 +35,12 @@ ESPN_DEFAULT_LEAGUES = (
     "conmebol.libertadores",
     "bra.camp.paulista",
 )
+ESPN_LEAGUE_NAMES = {
+    "bra.1": "Campeonato Brasileiro",
+    "bra.copa_do_brazil": "Copa do Brasil",
+    "conmebol.libertadores": "CONMEBOL Libertadores",
+    "bra.camp.paulista": "Campeonato Paulista",
+}
 ESPN_REGION = "br"
 ESPN_LANGUAGE = "pt"
 SAO_PAULO_TZ = ZoneInfo("America/Sao_Paulo")
@@ -61,6 +67,7 @@ class MirassolScraper:
         self.session.mount("https://", adapter)
         self.session.mount("http://", adapter)
         self.games: List[Dict[str, Any]] = []
+        self._json_cache: Dict[str, Any] = {}
 
     def fetch_json(self, url: str) -> Dict[str, Any]:
         """Recupera JSON da API pública da ESPN com retry simples."""
@@ -70,6 +77,9 @@ class MirassolScraper:
             "User-Agent": HEADERS["User-Agent"],
             "Referer": "https://www.espn.com.br/futebol/",
         }
+
+        if url in self._json_cache:
+            return self._json_cache[url]
 
         for attempt in range(3):
             try:
@@ -85,7 +95,9 @@ class MirassolScraper:
                     print(f"  ⚠️  {last_error}")
                     continue
 
-                return response.json()
+                data = response.json()
+                self._json_cache[url] = data
+                return data
             except Exception as e:
                 last_error = str(e)
                 print(f"  Erro JSON tentativa {attempt + 1}/3: {last_error[:140]}")
@@ -133,13 +145,13 @@ class MirassolScraper:
                     print(f"    ↪ Evento {event_id} duplicado ignorado")
                     continue
 
-                summary_url = (
-                    "https://site.api.espn.com/apis/site/v2/sports/soccer/"
-                    f"{league}/summary?event={event_id}"
-                    f"&region={ESPN_REGION}&lang={ESPN_LANGUAGE}"
+                event_url = (
+                    "https://sports.core.api.espn.com/v2/sports/soccer/"
+                    f"leagues/{league}/events/{event_id}?lang={ESPN_LANGUAGE}&region={ESPN_REGION}"
                 )
-                summary = self.fetch_json(summary_url)
-                game = self.parse_json_event(summary, event_id=event_id)
+                print(f"    Evento {event_id}: buscando detalhes via Core API")
+                summary = self.fetch_json(event_url)
+                game = self.parse_core_event(summary, event_id=event_id, league=league)
                 if not game:
                     print(f"    ⚠️  Evento {event_id} sem dados suficientes")
                     continue
@@ -160,7 +172,7 @@ class MirassolScraper:
     def parse_json_event(
         self, payload: Dict[str, Any], event_id: Optional[str] = None
     ) -> Optional[Dict[str, Any]]:
-        """Converte um resumo JSON da ESPN para o formato interno de jogo."""
+        """Converte um resumo JSON antigo da ESPN para o formato interno de jogo."""
         header = payload.get("header") or {}
         competitions = header.get("competitions") or []
         if not competitions:
@@ -225,6 +237,78 @@ class MirassolScraper:
 
         return game
 
+    def parse_core_event(
+        self, payload: Dict[str, Any], event_id: Optional[str] = None, league: str = ""
+    ) -> Optional[Dict[str, Any]]:
+        """Converte o JSON do sports.core.api para o formato interno de jogo."""
+        competitions = payload.get("competitions") or []
+        if not competitions:
+            return None
+
+        competition = competitions[0]
+        competitors = competition.get("competitors") or []
+        home = self._find_competitor(competitors, "home")
+        away = self._find_competitor(competitors, "away")
+        if not home or not away:
+            return None
+
+        date_text = competition.get("date") or payload.get("date")
+        local_datetime = self._parse_espn_datetime(date_text)
+        if not local_datetime:
+            return None
+        event_date = local_datetime.replace(hour=0, minute=0, second=0, microsecond=0)
+
+        time_valid = competition.get("timeValid")
+        if time_valid is None:
+            time_valid = payload.get("timeValid")
+
+        status = competition.get("status") or {}
+        status = self._resolve_reference(status)
+        status_type = status.get("type") or {}
+        status_type = self._resolve_reference(status_type)
+        completed = bool(status_type.get("completed"))
+        status_detail = " ".join(
+            str(status_type.get(key) or "")
+            for key in ("description", "detail", "shortDetail")
+        )
+        all_day = completed or time_valid is False or "definir" in status_detail.lower()
+
+        championship = ESPN_LEAGUE_NAMES.get(league, "")
+
+        game: Dict[str, Any] = {
+            "date": event_date,
+            "team1": self._team_name(home),
+            "team2": self._team_name(away),
+            "championship": championship,
+            "status": "finished" if completed else "scheduled",
+            "all_day": all_day,
+            "event_id": event_id,
+        }
+
+        if completed:
+            home_score = self._score_value(home)
+            away_score = self._score_value(away)
+            if home_score is None or away_score is None:
+                return None
+            game["score"] = f"{home_score} - {away_score}"
+        else:
+            game["score"] = None
+            game["time"] = "00:00" if all_day else local_datetime.strftime("%H:%M")
+
+        return game
+
+    def _resolve_reference(self, value: Any) -> Any:
+        if not isinstance(value, dict):
+            return value
+        ref_url = value.get("$ref")
+        if not ref_url:
+            return value
+        ref_url = ref_url.replace("http://", "https://")
+        try:
+            return self.fetch_json(ref_url)
+        except Exception:
+            return value
+
     def _find_competitor(
         self, competitors: List[Dict[str, Any]], home_away: str
     ) -> Optional[Dict[str, Any]]:
@@ -235,12 +319,32 @@ class MirassolScraper:
 
     def _team_name(self, competitor: Dict[str, Any]) -> str:
         team = competitor.get("team") or {}
-        return team.get("displayName") or team.get("name") or ""
+        if isinstance(team, dict):
+            team = self._resolve_reference(team)
+            return (
+                team.get("displayName")
+                or team.get("name")
+                or team.get("shortDisplayName")
+                or team.get("abbreviation")
+                or ""
+            )
+        return str(team)
 
     def _score_value(self, competitor: Dict[str, Any]) -> Optional[str]:
         score = competitor.get("score")
         if score is None:
             return None
+        if isinstance(score, dict):
+            score = self._resolve_reference(score)
+            if isinstance(score, dict):
+                if score.get("displayValue") is not None:
+                    return str(score["displayValue"])
+                if score.get("value") is not None:
+                    value = score.get("value")
+                    if isinstance(value, float) and value.is_integer():
+                        return str(int(value))
+                    return str(value)
+                return None
         return str(score)
 
     def _parse_espn_datetime(self, value: Optional[str]) -> Optional[datetime]:
